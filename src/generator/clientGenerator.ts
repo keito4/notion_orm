@@ -2,11 +2,45 @@ import { writeFileSync } from 'fs';
 import { Schema } from '../types';
 import { logger } from '../utils/logger';
 import { NotionPropertyTypes } from '../types/notionTypes';
+import { resolve, dirname } from 'path';
+import { mkdirSync } from 'fs';
+
+interface NotionPropertyValue {
+  id: string;
+  type: string;
+  [key: string]: any;
+}
+
+interface NotionPage {
+  id: string;
+  properties: Record<string, NotionPropertyValue>;
+  created_time: string;
+  last_edited_time: string;
+}
+
+interface NotionUser {
+  id: string;
+  name?: string;
+  avatar_url?: string;
+}
+
+interface NotionRelation {
+  id: string;
+}
 
 export async function generateClient(schema: Schema): Promise<void> {
   try {
+    const outputDir = schema.output?.directory || './generated';
+    const clientFile = schema.output?.clientFile || 'client.ts';
+    const outputPath = resolve(outputDir, clientFile);
+
+    // 出力ディレクトリの作成
+    mkdirSync(dirname(outputPath), { recursive: true });
+
     const clientCode = generateClientCode(schema);
-    writeFileSync('./generated/client.ts', clientCode);
+    writeFileSync(outputPath, clientCode);
+
+    logger.info(`Generated client code in ${outputPath}`);
   } catch (error) {
     logger.error('Error generating client:', error);
     throw error;
@@ -14,9 +48,34 @@ export async function generateClient(schema: Schema): Promise<void> {
 }
 
 function generateClientCode(schema: Schema): string {
+  const typeFile = schema.output?.typeDefinitionFile || 'types';
+
   return `
 import { Client } from '@notionhq/client';
-import { ${schema.models.map(m => m.name).join(', ')} } from './types';
+import { ${schema.models.map(m => m.name).join(', ')} } from './${typeFile.replace(/\.ts$/, '')}';
+
+interface NotionPropertyValue {
+  id: string;
+  type: string;
+  [key: string]: any;
+}
+
+interface NotionPage {
+  id: string;
+  properties: Record<string, NotionPropertyValue>;
+  created_time: string;
+  last_edited_time: string;
+}
+
+interface NotionUser {
+  id: string;
+  name?: string;
+  avatar_url?: string;
+}
+
+interface NotionRelation {
+  id: string;
+}
 
 export class NotionOrmClient {
   private notion: Client;
@@ -27,7 +86,7 @@ export class NotionOrmClient {
 
   ${schema.models.map(model => `
   async get${model.name}(id: string): Promise<${model.name}> {
-    const response = await this.notion.pages.retrieve({ page_id: id });
+    const response = await this.notion.pages.retrieve({ page_id: id }) as NotionPage;
     return this.mapResponseTo${model.name}(response);
   }
 
@@ -35,10 +94,10 @@ export class NotionOrmClient {
     const response = await this.notion.databases.query({
       database_id: "${model.notionDatabaseId}"
     });
-    return response.results.map(page => this.mapResponseTo${model.name}(page));
+    return response.results.map(page => this.mapResponseTo${model.name}(page as NotionPage));
   }
 
-  private mapResponseTo${model.name}(response: any): ${model.name} {
+  private mapResponseTo${model.name}(response: NotionPage): ${model.name} {
     const props = response.properties;
     return {
       id: response.id,
@@ -58,27 +117,27 @@ export class NotionOrmClient {
 function mapNotionResponseToProperty(type: string, propertyPath: string): string {
   switch (type) {
     case NotionPropertyTypes.Title:
-      return `${propertyPath}?.title[0]?.plain_text || ""`;
+      return `${propertyPath}?.title?.[0]?.plain_text || ""`;
     case NotionPropertyTypes.RichText:
-      return `${propertyPath}?.rich_text[0]?.plain_text || ""`;
+      return `${propertyPath}?.rich_text?.[0]?.plain_text || ""`;
     case NotionPropertyTypes.Number:
       return `${propertyPath}?.number || 0`;
     case NotionPropertyTypes.Select:
       return `${propertyPath}?.select?.name || ""`;
     case NotionPropertyTypes.MultiSelect:
-      return `${propertyPath}?.multi_select?.map(item => item.name) || []`;
+      return `${propertyPath}?.multi_select?.map((item: { name: string }) => item.name) || []`;
     case NotionPropertyTypes.Date:
       return `${propertyPath}?.date?.start || null`;
     case NotionPropertyTypes.Checkbox:
       return `${propertyPath}?.checkbox || false`;
     case NotionPropertyTypes.People:
-      return `${propertyPath}?.people?.map(user => ({
+      return `${propertyPath}?.people?.map((user: NotionUser) => ({
         id: user.id,
         name: user.name || "",
         avatar_url: user.avatar_url
       })) || []`;
     case NotionPropertyTypes.Relation:
-      return `${propertyPath}?.relation?.map(item => ({ id: item.id })) || []`;
+      return `${propertyPath}?.relation?.map((item: NotionRelation) => ({ id: item.id })) || []`;
     case NotionPropertyTypes.Formula:
       return `${propertyPath}?.formula?.string || ${propertyPath}?.formula?.number?.toString() || ""`;
     default:
