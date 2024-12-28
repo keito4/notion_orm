@@ -1,8 +1,14 @@
 import { Client } from '@notionhq/client';
 import { Schema, Model } from '../types';
-import { NotionPropertyTypes } from '../types/notionTypes';
+import { 
+  NotionPropertyTypes, 
+  NotionDatabase, 
+  NotionDatabaseProperty,
+  NotionSelectProperty,
+  NotionMultiSelectProperty,
+  NotionSelectOption
+} from '../types/notionTypes';
 import { logger } from '../utils/logger';
-import type { DatabaseObjectResponse, DatabasePropertyConfigResponse, SelectPropertyResponse, MultiSelectPropertyResponse } from '@notionhq/client/build/src/api-endpoints';
 
 export class NotionClient {
   private client: Client;
@@ -43,103 +49,44 @@ export class NotionClient {
     }
   }
 
-  private async validateDatabaseSchema(model: Model, database: DatabaseObjectResponse): Promise<void> {
+  private async validateDatabaseSchema(model: Model, database: NotionDatabase): Promise<void> {
     const notionProperties = database.properties;
-    const typeMismatches: Array<{ field: string; expected: string; got: string }> = [];
-
     logger.info('Notion database properties:', notionProperties);
 
-    for (const field of model.fields) {
-      const mappedName = field.name;
-
-      const property = this.findPropertyByName(notionProperties, mappedName);
-
-      if (!property) {
-        logger.warn(`Property not found for field ${field.name} (mapped: ${mappedName})`);
-        typeMismatches.push({
-          field: field.name,
-          expected: field.type,
-          got: 'not found'
-        });
-        continue;
-      }
-
-      logger.info(`Found property for ${field.name}: ${JSON.stringify(property)}`);
-
-      const expectedType = field.type.toLowerCase();
-      const actualType = property.type;
-
-      if (expectedType !== actualType) {
-        typeMismatches.push({
-          field: field.name,
-          expected: expectedType,
-          got: actualType
-        });
-      }
-
-      // 選択肢の検証（select, multi_selectの場合）
-      if (property.type === 'select' || property.type === 'multi_select') {
-        const options = await this.getPropertyOptions(database.id, property.id);
-        logger.info(`Property ${field.name} has options:`, options.map(opt => opt.name));
-      }
-    }
-
-    if (typeMismatches.length > 0) {
-      let errorMessage = `Schema validation failed for model ${model.name}:\n`;
-      errorMessage += 'Type mismatches:\n';
-      typeMismatches.forEach(({ field, expected, got }) => {
-        errorMessage += `  - ${field}: expected ${expected}, got ${got}\n`;
-      });
-      throw new Error(errorMessage);
-    }
-  }
-
-  private findPropertyByName(properties: Record<string, DatabasePropertyConfigResponse>, fieldName: string): DatabasePropertyConfigResponse | null {
-    logger.info(`Looking for property "${fieldName}" in properties:`, Object.keys(properties));
-
-    if (properties[fieldName]) {
-      logger.info(`Found exact match for "${fieldName}"`);
-      return properties[fieldName];
-    }
-
-    const propertyMap = new Map<string, DatabasePropertyConfigResponse>();
-    Object.entries(properties).forEach(([key, value]) => {
-      propertyMap.set(key.toLowerCase(), value);
-      propertyMap.set(key, value);
-      if ('name' in value) {
-        propertyMap.set(value.name.toLowerCase(), value);
-        propertyMap.set(value.name, value);
-      }
+    // Notionデータベースの構造に基づいて、モデルのフィールドを更新
+    model.fields = Object.entries(notionProperties).map(([key, property]) => {
+      const isOptional = property.type !== NotionPropertyTypes.Title; // タイトル以外は任意
+      return {
+        name: property.name,
+        type: property.type,
+        optional: isOptional,
+        attributes: []
+      };
     });
 
-    const matchedProperty = propertyMap.get(fieldName) || propertyMap.get(fieldName.toLowerCase());
-
-    if (matchedProperty) {
-      logger.info(`Found match for "${fieldName}": ${matchedProperty.name}`);
-      return matchedProperty;
-    }
-
-    logger.warn(`No property found for "${fieldName}"`);
-    return null;
+    // プロパティの詳細情報をログ出力
+    Object.entries(notionProperties).forEach(([key, property]) => {
+      if (property.type === NotionPropertyTypes.Select || property.type === NotionPropertyTypes.MultiSelect) {
+        const options = this.getPropertyOptions(property);
+        logger.info(`Property ${property.name} has options:`, options.map(opt => opt.name));
+      }
+    });
   }
 
-  async getDatabaseSchema(databaseId: string): Promise<DatabaseObjectResponse> {
+  async getDatabaseSchema(databaseId: string): Promise<NotionDatabase> {
     try {
-      const database = await this.client.databases.retrieve({
+      const response = await this.client.databases.retrieve({
         database_id: databaseId
       });
 
-      // プロパティ情報の詳細を取得
-      for (const [key, prop] of Object.entries(database.properties)) {
-        if (prop.type === 'select' || prop.type === 'multi_select') {
-          const options = await this.getPropertyOptions(databaseId, prop.id);
-          if (prop.type === 'select') {
-            (prop as SelectPropertyResponse).select.options = options;
-          } else {
-            (prop as MultiSelectPropertyResponse).multi_select.options = options;
-          }
-        }
-      }
+      // NotionのAPIレスポンスを我々の型定義に変換
+      const database: NotionDatabase = {
+        id: response.id,
+        properties: Object.entries(response.properties).reduce((acc, [key, prop]) => {
+          acc[key] = this.convertToNotionProperty(prop);
+          return acc;
+        }, {} as Record<string, NotionDatabaseProperty>)
+      };
 
       logger.info('Retrieved database schema:', database.properties);
       return database;
@@ -149,21 +96,46 @@ export class NotionClient {
     }
   }
 
-  private async getPropertyOptions(databaseId: string, propertyId: string): Promise<Array<{ id: string; name: string; color: string }>> {
-    try {
-      const response = await this.client.databases.retrieve({ database_id: databaseId });
-      const property = response.properties[propertyId];
+  private getPropertyOptions(property: NotionDatabaseProperty): NotionSelectOption[] {
+    if (property.type === NotionPropertyTypes.Select) {
+      return (property as NotionSelectProperty).select.options || [];
+    } else if (property.type === NotionPropertyTypes.MultiSelect) {
+      return (property as NotionMultiSelectProperty).multi_select.options || [];
+    }
+    return [];
+  }
 
-      if (property.type === 'select') {
-        return property.select.options;
-      } else if (property.type === 'multi_select') {
-        return property.multi_select.options;
-      }
+  private convertToNotionProperty(apiProperty: any): NotionDatabaseProperty {
+    const base = {
+      id: apiProperty.id,
+      name: apiProperty.name,
+      type: apiProperty.type as NotionPropertyTypes
+    };
 
-      return [];
-    } catch (error) {
-      logger.error(`Failed to retrieve property options: ${error}`);
-      return [];
+    switch (apiProperty.type) {
+      case NotionPropertyTypes.Select:
+        return {
+          ...base,
+          type: NotionPropertyTypes.Select,
+          select: {
+            options: apiProperty.select.options || []
+          }
+        } as NotionSelectProperty;
+
+      case NotionPropertyTypes.MultiSelect:
+        return {
+          ...base,
+          type: NotionPropertyTypes.MultiSelect,
+          multi_select: {
+            options: apiProperty.multi_select.options || []
+          }
+        } as NotionMultiSelectProperty;
+
+      default:
+        return {
+          ...base,
+          [apiProperty.type]: {}
+        } as NotionDatabaseProperty;
     }
   }
 }
