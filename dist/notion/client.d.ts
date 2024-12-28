@@ -1,11 +1,11 @@
 import { Schema } from '../types';
-import type { DatabaseObjectResponse } from '@notionhq/client/build/src/api-endpoints';
+import { NotionDatabase } from '../types/notionTypes';
 export declare class NotionClient {
     private client;
     constructor();
     validateSchema(schema: Schema): Promise<void>;
     private validateDatabaseSchema;
-    private findPropertyByName;
-    getDatabaseSchema(databaseId: string): Promise<DatabaseObjectResponse>;
+    getDatabaseSchema(databaseId: string): Promise<NotionDatabase>;
     private getPropertyOptions;
+    private convertToNotionProperty;
 }
