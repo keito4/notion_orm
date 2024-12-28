@@ -29,9 +29,12 @@ export function parseSchema(content: string): Schema {
         currentModel = null;
         inModelBlock = false;
       } else if (inModelBlock && currentModel) {
-        const fieldMatch = line.match(/(\w+)\s+(\w+)(\[\])?(\?)?\s*((@\w+|\@map\([^)]+\))*)/);
+        // Handle fields with double quotes
+        const fieldMatch = line.match(/(?:"[^"]+"|[\w]+)\s+(\w+)(\[\])?(\?)?\s*((@\w+|\@map\([^)]+\))*)/);
         if (fieldMatch) {
-          const [_, name, type, isArray, optional, attributesStr] = fieldMatch;
+          const fieldName = line.match(/^(?:"([^"]+)"|(\w+))/);
+          const name = fieldName ? (fieldName[1] || fieldName[2]) : '';
+          const [_, type, isArray, optional, attributesStr] = fieldMatch;
 
           // Extract all attributes
           const attributes: string[] = [];
@@ -46,10 +49,9 @@ export function parseSchema(content: string): Schema {
           const mapMatch = attributes.find(attr => attr.startsWith('@map('))?.match(/@map\(([^)]+)\)/);
           const mappedName = mapMatch ? mapMatch[1].replace(/['"]/g, '') : name;
 
-          // Determine the correct Notion type based on attributes and type
-          const notionType = mapTypeToNotion(type, isArray, attributes);
-
           logger.info(`Field ${name} mapped to "${mappedName}"`);
+
+          const notionType = mapTypeToNotion(type, isArray, attributes);
 
           currentModel.fields.push({
             name: mappedName,
@@ -90,19 +92,25 @@ function mapTypeToNotion(type: string, isArray: string | undefined, attributes: 
   if (attributes.includes('@relation') || isArray) {
     return NotionPropertyTypes.Relation;
   }
+  if (attributes.includes('@people')) {
+    return NotionPropertyTypes.People;
+  }
+  if (attributes.includes('@date')) {
+    return NotionPropertyTypes.Date;
+  }
 
   // Map basic types
   const typeMap: Record<string, NotionPropertyTypes> = {
     'String': NotionPropertyTypes.RichText,
     'Number': NotionPropertyTypes.Number,
     'Boolean': NotionPropertyTypes.Checkbox,
-    'Json': NotionPropertyTypes.People,
+    'Json': NotionPropertyTypes.RichText,
   };
 
   const mappedType = typeMap[type];
   if (!mappedType) {
-    logger.warn(`Unknown type mapping for: ${type}, using as-is`);
-    return type.toLowerCase();
+    logger.warn(`Unknown type mapping for: ${type}, using RichText as default`);
+    return NotionPropertyTypes.RichText;
   }
 
   return mappedType;

@@ -1,6 +1,6 @@
 
 import { Client } from '@notionhq/client';
-import { Task } from './models';
+import { Task } from './types';
 
 export class NotionOrmClient {
   private notion: Client;
@@ -15,47 +15,36 @@ export class NotionOrmClient {
     return this.mapResponseToTask(response);
   }
 
+  async listTasks(): Promise<Task[]> {
+    const response = await this.notion.databases.query({
+      database_id: "aac810fcb3414dbb9c46ce485bc6449b"
+    });
+    return response.results.map(page => this.mapResponseToTask(page));
+  }
+
   private mapResponseToTask(response: any): Task {
+    const props = response.properties;
     return {
-      
-        完了: response.properties.完了?.checkbox
-      ,
-
-        注力: response.properties.注力?.checkbox
-      ,
-
-        Sub-item: response.properties.Sub-item?.any
-      ,
-
-        似てるページ: response.properties.似てるページ?.any
-      ,
-
-        日付: response.properties.日付?.date?.start || null
-      ,
-
-        責任者: response.properties.責任者?.any
-      ,
-
-        アーカイブ: response.properties.アーカイブ?.checkbox
-      ,
-
-        OYKOT Timeline: response.properties.OYKOT Timeline?.any
-      ,
-
-        Action: response.properties.Action?.any
-      ,
-
-        Objective進行度: response.properties.Objective進行度?.any
-      ,
-
-        Parent item: response.properties.Parent item?.any
-      ,
-
-        Action進行度: response.properties.Action進行度?.any
-      ,
-
-        Name: response.properties.Name?.title[0]?.plain_text || ""
-      
+      id: response.id,
+      "完了": props['完了']?.checkbox || false,
+      "注力": props['注力']?.checkbox || false,
+      "Sub-item": props['Sub-item']?.relation?.map(item => ({ id: item.id })) || [],
+      "似てるページ": props['似てるページ']?.relation?.map(item => ({ id: item.id })) || [],
+      "日付": props['日付']?.date?.start || null,
+      "責任者": props['責任者']?.people?.map(user => ({
+        id: user.id,
+        name: user.name || "",
+        avatar_url: user.avatar_url
+      })) || [],
+      "アーカイブ": props['アーカイブ']?.checkbox || false,
+      "OYKOT Timeline": props['OYKOT Timeline']?.relation?.map(item => ({ id: item.id })) || [],
+      "Action": props['Action']?.relation?.map(item => ({ id: item.id })) || [],
+      "Objective進行度": props['Objective進行度']?.formula?.string || props['Objective進行度']?.formula?.number?.toString() || "",
+      "Parent item": props['Parent item']?.relation?.map(item => ({ id: item.id })) || [],
+      "Action進行度": props['Action進行度']?.formula?.string || props['Action進行度']?.formula?.number?.toString() || "",
+      "Name": props['Name']?.title[0]?.plain_text || "",
+      createdTime: response.created_time,
+      lastEditedTime: response.last_edited_time
     };
   }
   

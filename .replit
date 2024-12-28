@@ -19,6 +19,10 @@ args = "CLI Tool"
 task = "workflow.run"
 args = "Build CLI"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Test Runner"
+
 [[workflows.workflow]]
 name = "CLI Tool"
 author = "agent"
@@ -46,6 +50,20 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "tsc && chmod +x dist/index.js"
+
+[[workflows.workflow]]
+name = "Test Runner"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm test"
 
 [deployment]
 run = ["sh", "-c", "ts-node src/index.ts generate"]
