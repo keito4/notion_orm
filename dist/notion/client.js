@@ -20,9 +20,7 @@ class NotionClient {
                 }
                 logger_1.logger.info(`Validating schema for model ${model.name} with database ID ${model.notionDatabaseId}`);
                 try {
-                    const database = await this.client.databases.retrieve({
-                        database_id: model.notionDatabaseId
-                    });
+                    const database = await this.getDatabaseSchema(model.notionDatabaseId);
                     await this.validateDatabaseSchema(model, database);
                     logger_1.logger.success(`Validated schema for model ${model.name}`);
                 }
@@ -46,10 +44,8 @@ class NotionClient {
         const typeMismatches = [];
         logger_1.logger.info('Notion database properties:', notionProperties);
         for (const field of model.fields) {
-            const mappedName = this.getMappedName(field.attributes, field.name);
-            logger_1.logger.info(`Validating field ${field.name} with mapped name "${mappedName}"`);
-            // プロパティを大文字小文字を区別せずに検索
-            const property = this.findPropertyCaseInsensitive(notionProperties, mappedName);
+            const mappedName = field.name;
+            const property = this.findPropertyByName(notionProperties, mappedName);
             if (!property) {
                 logger_1.logger.warn(`Property not found for field ${field.name} (mapped: ${mappedName})`);
                 typeMismatches.push({
@@ -69,6 +65,11 @@ class NotionClient {
                     got: actualType
                 });
             }
+            // 選択肢の検証（select, multi_selectの場合）
+            if (property.type === 'select' || property.type === 'multi_select') {
+                const options = await this.getPropertyOptions(database.id, property.id);
+                logger_1.logger.info(`Property ${field.name} has options:`, options.map(opt => opt.name));
+            }
         }
         if (typeMismatches.length > 0) {
             let errorMessage = `Schema validation failed for model ${model.name}:\n`;
@@ -79,29 +80,69 @@ class NotionClient {
             throw new Error(errorMessage);
         }
     }
-    getMappedName(attributes, defaultName) {
-        const mapAttribute = attributes.find(attr => attr.startsWith('@map('));
-        if (!mapAttribute)
-            return defaultName;
-        const match = mapAttribute.match(/@map\("([^"]+)"\)/);
-        return match ? match[1] : defaultName;
-    }
-    findPropertyCaseInsensitive(properties, fieldName) {
-        const lowerFieldName = fieldName.toLowerCase();
-        const entry = Object.entries(properties).find(([key]) => key.toLowerCase() === lowerFieldName);
-        return entry ? entry[1] : null;
+    findPropertyByName(properties, fieldName) {
+        logger_1.logger.info(`Looking for property "${fieldName}" in properties:`, Object.keys(properties));
+        if (properties[fieldName]) {
+            logger_1.logger.info(`Found exact match for "${fieldName}"`);
+            return properties[fieldName];
+        }
+        const propertyMap = new Map();
+        Object.entries(properties).forEach(([key, value]) => {
+            propertyMap.set(key.toLowerCase(), value);
+            propertyMap.set(key, value);
+            if ('name' in value) {
+                propertyMap.set(value.name.toLowerCase(), value);
+                propertyMap.set(value.name, value);
+            }
+        });
+        const matchedProperty = propertyMap.get(fieldName) || propertyMap.get(fieldName.toLowerCase());
+        if (matchedProperty) {
+            logger_1.logger.info(`Found match for "${fieldName}": ${matchedProperty.name}`);
+            return matchedProperty;
+        }
+        logger_1.logger.warn(`No property found for "${fieldName}"`);
+        return null;
     }
     async getDatabaseSchema(databaseId) {
         try {
             const database = await this.client.databases.retrieve({
                 database_id: databaseId
             });
+            // プロパティ情報の詳細を取得
+            for (const [key, prop] of Object.entries(database.properties)) {
+                if (prop.type === 'select' || prop.type === 'multi_select') {
+                    const options = await this.getPropertyOptions(databaseId, prop.id);
+                    if (prop.type === 'select') {
+                        prop.select.options = options;
+                    }
+                    else {
+                        prop.multi_select.options = options;
+                    }
+                }
+            }
             logger_1.logger.info('Retrieved database schema:', database.properties);
             return database;
         }
         catch (error) {
             logger_1.logger.error(`Failed to retrieve database schema: ${error.message}`);
             throw error;
+        }
+    }
+    async getPropertyOptions(databaseId, propertyId) {
+        try {
+            const response = await this.client.databases.retrieve({ database_id: databaseId });
+            const property = response.properties[propertyId];
+            if (property.type === 'select') {
+                return property.select.options;
+            }
+            else if (property.type === 'multi_select') {
+                return property.multi_select.options;
+            }
+            return [];
+        }
+        catch (error) {
+            logger_1.logger.error(`Failed to retrieve property options: ${error}`);
+            return [];
         }
     }
 }

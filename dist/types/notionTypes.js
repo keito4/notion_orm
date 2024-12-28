@@ -14,4 +14,5 @@ var NotionPropertyTypes;
     NotionPropertyTypes["Email"] = "email";
     NotionPropertyTypes["PhoneNumber"] = "phone_number";
     NotionPropertyTypes["Files"] = "files";
+    NotionPropertyTypes["People"] = "people";
 })(NotionPropertyTypes || (exports.NotionPropertyTypes = NotionPropertyTypes = {}));
