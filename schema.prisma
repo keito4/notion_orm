@@ -20,3 +20,22 @@ model Task @notionDatabase("***REMOVED***") {
   parentItem        String[]  @relation @map("Parent item")
   actionProgress    String?   @formula @map("Action進行度")
 }
+
+// ドキュメントモデル
+model Document @notionDatabase("your-document-database-id") {
+  title       String    @title @map("Title")
+  content     String?   @richText @map("Content")
+  status      String    @select @map("Status")
+  domain      Domain[]  @relation @map("Domain")
+  tags        String[]  @multiSelect @map("Tags")
+  createdAt   DateTime  @date @map("Created At")
+  author      Json?     @people @map("Author")
+}
+
+// ドメインモデル
+model Domain @notionDatabase("your-domain-database-id") {
+  name        String     @title @map("Name")
+  description String?    @richText @map("Description")
+  isActive    Boolean    @checkbox @map("Is Active")
+  documents   Document[] @relation @map("Documents")
+}

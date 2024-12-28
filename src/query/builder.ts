@@ -9,16 +9,22 @@ export interface FilterCondition {
   value: any;
 }
 
+export interface RelationFilter {
+  relationProperty: string;
+  filter: FilterCondition;
+}
+
 export interface SortCondition {
   property: string;
   direction: 'ascending' | 'descending';
 }
 
 export class QueryBuilder<T> {
-  private filters: FilterCondition[] = [];
+  private filters: (FilterCondition | RelationFilter)[] = [];
   private sorts: SortCondition[] = [];
   private pageSize?: number;
   private startCursor?: string;
+  private includedRelations: Set<string> = new Set();
 
   constructor(
     private notion: Client,
@@ -32,6 +38,29 @@ export class QueryBuilder<T> {
       operator,
       value
     });
+    return this;
+  }
+
+  whereRelation<R>(
+    relationProperty: keyof T,
+    relationFilter: (builder: QueryBuilder<R>) => QueryBuilder<R>
+  ): QueryBuilder<T> {
+    const subBuilder = new QueryBuilder<R>(this.notion, '', relationProperty as string);
+    relationFilter(subBuilder);
+
+    // サブビルダーのフィルターを取得
+    const subFilters = subBuilder.getFilters();
+    for (const filter of subFilters) {
+      this.filters.push({
+        relationProperty: String(relationProperty),
+        filter: filter as FilterCondition
+      });
+    }
+    return this;
+  }
+
+  include(relationProperty: keyof T): QueryBuilder<T> {
+    this.includedRelations.add(String(relationProperty));
     return this;
   }
 
@@ -53,9 +82,22 @@ export class QueryBuilder<T> {
     return this;
   }
 
-  private buildFilter(condition: FilterCondition): any {
+  getFilters(): (FilterCondition | RelationFilter)[] {
+    return this.filters;
+  }
+
+  private buildFilter(condition: FilterCondition | RelationFilter): any {
+    if ('relationProperty' in condition) {
+      // リレーションフィルター
+      return {
+        property: condition.relationProperty,
+        relation: this.buildFilter(condition.filter)
+      };
+    }
+
+    // 通常のフィルター
     const { property, operator, value } = condition;
-    
+
     switch (operator) {
       case 'equals':
         return {
@@ -115,15 +157,11 @@ export class QueryBuilder<T> {
   }
 
   private getPropertyType(property: string): string {
-    // This is a simplified version. In a real implementation,
-    // you would want to get the actual property type from the schema
-    if (property === 'Name') return 'title';
-    if (property.endsWith('Progress')) return 'formula';
-    if (['完了', '注力', 'アーカイブ'].includes(property)) return 'checkbox';
-    if (['Sub-item', '似てるページ', 'OYKOT Timeline', 'Action', 'Parent item'].includes(property)) return 'relation';
-    if (property === '日付') return 'date';
-    if (property === '責任者') return 'people';
-    return 'rich_text';
+    // 実際のプロパティタイプは、スキーマ情報から取得する必要があります
+    if (property === 'title') return NotionPropertyTypes.Title;
+    if (property.endsWith('At')) return NotionPropertyTypes.Date;
+    if (property === 'isActive') return NotionPropertyTypes.Checkbox;
+    return NotionPropertyTypes.RichText;
   }
 
   async execute(): Promise<T[]> {
@@ -155,11 +193,31 @@ export class QueryBuilder<T> {
     }
 
     const response = await this.notion.databases.query(query);
-    return response.results.map((page: any) => this.mapResponseToModel(page));
+    const results = response.results.map(page => this.mapResponseToModel(page));
+
+    // リレーションの取得
+    if (this.includedRelations.size > 0) {
+      for (const result of results) {
+        await this.loadRelations(result);
+      }
+    }
+
+    return results;
+  }
+
+  private async loadRelations(model: any): Promise<void> {
+    for (const relationProperty of this.includedRelations) {
+      if (model[relationProperty]) {
+        const relationIds = model[relationProperty].map((rel: { id: string }) => rel.id);
+        const relationData = await Promise.all(
+          relationIds.map(id => this.notion.pages.retrieve({ page_id: id }))
+        );
+        model[relationProperty] = relationData.map(page => this.mapResponseToModel(page));
+      }
+    }
   }
 
   private mapResponseToModel(page: any): T {
-    // この部分は実際のモデルの型に応じて適切にマッピングする必要があります
     const props = page.properties;
     return {
       id: page.id,
@@ -174,29 +232,29 @@ export class QueryBuilder<T> {
 
   private mapPropertyValue(property: any): any {
     switch (property.type) {
-      case 'title':
+      case NotionPropertyTypes.Title:
         return property.title[0]?.plain_text || '';
-      case 'rich_text':
+      case NotionPropertyTypes.RichText:
         return property.rich_text[0]?.plain_text || '';
-      case 'number':
+      case NotionPropertyTypes.Number:
         return property.number || 0;
-      case 'select':
+      case NotionPropertyTypes.Select:
         return property.select?.name || '';
-      case 'multi_select':
+      case NotionPropertyTypes.MultiSelect:
         return property.multi_select?.map((item: any) => item.name) || [];
-      case 'date':
+      case NotionPropertyTypes.Date:
         return property.date?.start || null;
-      case 'checkbox':
+      case NotionPropertyTypes.Checkbox:
         return property.checkbox || false;
-      case 'people':
+      case NotionPropertyTypes.People:
         return property.people?.map((user: any) => ({
           id: user.id,
           name: user.name || '',
           avatar_url: user.avatar_url
         })) || [];
-      case 'relation':
+      case NotionPropertyTypes.Relation:
         return property.relation?.map((item: any) => ({ id: item.id })) || [];
-      case 'formula':
+      case NotionPropertyTypes.Formula:
         return property.formula?.string || property.formula?.number?.toString() || '';
       default:
         return '';
