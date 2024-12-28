@@ -1,0 +1,35 @@
+ts-node src/index.ts generate
+ℹ Field Name mapped to "Name"
+ℹ Field Sub-item mapped to "Sub-item"
+ℹ Field OYKOT Timeline mapped to "OYKOT Timeline"
+ℹ Field Action mapped to "Action"
+ℹ Field Parent item mapped to "Parent item"
+ℹ Validating schema for model Task with database ID aac810fcb3414dbb9c46ce485bc6449b
+(node:56473) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+✗ Failed to retrieve database schema: request to https://api.notion.com/v1/databases/aac810fcb3414dbb9c46ce485bc6449b failed, reason: getaddrinfo ENOTFOUND api.notion.com
+✗ Schema validation failed: request to https://api.notion.com/v1/databases/aac810fcb3414dbb9c46ce485bc6449b failed, reason: getaddrinfo ENOTFOUND api.notion.com
+✗ Error generating types:
+FetchError: request to https://api.notion.com/v1/databases/aac810fcb3414dbb9c46ce485bc6449b failed, reason: getaddrinfo ENOTFOUND api.notion.com
+    at ClientRequest.<anonymous> (/Users/keito/develop/github.com/keito4/notion_orm/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:513:28)
+    at ClientRequest.emit (node:domain:489:12)
+    at emitErrorEvent (node:_http_client:104:11)
+    at TLSSocket.socketErrorListener (node:_http_client:512:5)
+    at TLSSocket.emit (node:events:513:28)
+    at TLSSocket.emit (node:domain:489:12)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)
+✗ Failed to generate types:
+FetchError: request to https://api.notion.com/v1/databases/aac810fcb3414dbb9c46ce485bc6449b failed, reason: getaddrinfo ENOTFOUND api.notion.com
+    at ClientRequest.<anonymous> (/Users/keito/develop/github.com/keito4/notion_orm/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:513:28)
+    at ClientRequest.emit (node:domain:489:12)
+    at emitErrorEvent (node:_http_client:104:11)
+    at TLSSocket.socketErrorListener (node:_http_client:512:5)
+    at TLSSocket.emit (node:events:513:28)
+    at TLSSocket.emit (node:domain:489:12)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)
