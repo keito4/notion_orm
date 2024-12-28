@@ -20,7 +20,6 @@ export interface SortCondition {
   direction: 'ascending' | 'descending';
 }
 
-// キャッシュ管理のためのインターフェース
 interface RelationCache {
   [key: string]: {
     data: any;
@@ -43,7 +42,7 @@ export class QueryBuilder<T> {
     private modelName: string
   ) {}
 
-  where(property: keyof T, operator: FilterOperator, value: any): QueryBuilder<T> {
+  where(property: keyof T | string, operator: FilterOperator, value: any): QueryBuilder<T> {
     this.filters.push({
       property: String(property),
       operator,
@@ -53,7 +52,7 @@ export class QueryBuilder<T> {
   }
 
   whereRelation<R>(
-    relationProperty: keyof T,
+    relationProperty: keyof T | string,
     relationFilter: (builder: QueryBuilder<R>) => QueryBuilder<R>
   ): QueryBuilder<T> {
     const subBuilder = new QueryBuilder<R>(this.notion, '', relationProperty as string);
@@ -61,20 +60,22 @@ export class QueryBuilder<T> {
 
     const subFilters = subBuilder.getFilters();
     for (const filter of subFilters) {
-      this.filters.push({
-        relationProperty: String(relationProperty),
-        filter: filter as FilterCondition
-      });
+      if ('property' in filter) {  // FilterCondition型のみを処理
+        this.filters.push({
+          relationProperty: String(relationProperty),
+          filter: filter
+        });
+      }
     }
     return this;
   }
 
-  include(relationProperty: keyof T): QueryBuilder<T> {
+  include(relationProperty: keyof T | string): QueryBuilder<T> {
     this.includedRelations.add(String(relationProperty));
     return this;
   }
 
-  orderBy(property: keyof T, direction: 'ascending' | 'descending' = 'ascending'): QueryBuilder<T> {
+  orderBy(property: keyof T | string, direction: 'ascending' | 'descending' = 'ascending'): QueryBuilder<T> {
     this.sorts.push({
       property: String(property),
       direction
@@ -166,51 +167,56 @@ export class QueryBuilder<T> {
 
   private getPropertyType(property: string): string {
     // プロパティタイプをスキーマ情報から推測
-    if (property === 'title') return NotionPropertyTypes.Title;
+    if (property === 'Title' || property === 'Name') return NotionPropertyTypes.Title;
     if (property.endsWith('At')) return NotionPropertyTypes.Date;
-    if (property === 'isActive') return NotionPropertyTypes.Checkbox;
+    if (property.startsWith('is') || property === 'IsActive') return NotionPropertyTypes.Checkbox;
     return NotionPropertyTypes.RichText;
   }
 
   async execute(): Promise<T[]> {
-    const query: any = {
-      database_id: this.databaseId
-    };
+    try {
+      const query: any = {
+        database_id: this.databaseId
+      };
 
-    if (this.filters.length > 0) {
-      query.filter = this.filters.length === 1
-        ? this.buildFilter(this.filters[0])
-        : {
-            and: this.filters.map(filter => this.buildFilter(filter))
-          };
+      if (this.filters.length > 0) {
+        query.filter = this.filters.length === 1
+          ? this.buildFilter(this.filters[0])
+          : {
+              and: this.filters.map(filter => this.buildFilter(filter))
+            };
+      }
+
+      if (this.sorts.length > 0) {
+        query.sorts = this.sorts.map(({ property, direction }) => ({
+          property,
+          direction
+        }));
+      }
+
+      if (this.pageSize) {
+        query.page_size = this.pageSize;
+      }
+
+      if (this.startCursor) {
+        query.start_cursor = this.startCursor;
+      }
+
+      logger.info(`Executing query for ${this.modelName}:`, query);
+
+      const response = await this.notion.databases.query(query);
+      const results = response.results.map(page => this.mapResponseToModel(page));
+
+      // リレーションの取得（必要な場合のみ）
+      if (this.includedRelations.size > 0) {
+        await Promise.all(results.map(result => this.loadRelations(result)));
+      }
+
+      return results;
+    } catch (error) {
+      logger.error(`Error executing query for ${this.modelName}:`, error);
+      throw error;
     }
-
-    if (this.sorts.length > 0) {
-      query.sorts = this.sorts.map(({ property, direction }) => ({
-        property,
-        direction
-      }));
-    }
-
-    if (this.pageSize) {
-      query.page_size = this.pageSize;
-    }
-
-    if (this.startCursor) {
-      query.start_cursor = this.startCursor;
-    }
-
-    logger.info(`Executing query for ${this.modelName}:`, query);
-
-    const response = await this.notion.databases.query(query);
-    const results = response.results.map(page => this.mapResponseToModel(page));
-
-    // リレーションの取得（必要な場合のみ）
-    if (this.includedRelations.size > 0) {
-      await Promise.all(results.map(result => this.loadRelations(result)));
-    }
-
-    return results;
   }
 
   private async loadRelations(model: any): Promise<void> {
@@ -289,7 +295,6 @@ export class QueryBuilder<T> {
           avatar_url: user.avatar_url
         })) || [];
       case NotionPropertyTypes.Relation:
-        // 単一のリレーションの場合は配列ではなくオブジェクトを返す
         const relations = property.relation?.map((item: any) => ({ id: item.id })) || [];
         return relations.length === 1 ? relations[0] : relations;
       case NotionPropertyTypes.Formula:
