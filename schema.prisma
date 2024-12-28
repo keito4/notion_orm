@@ -1,0 +1,16 @@
+model Task @notionDatabase("notion-database-id-1") {
+  title       String    @title
+  description String?   @rich_text
+  status      Select    @select
+  dueDate     Date?
+  completed   Boolean   @checkbox
+  tags        MultiSelect
+}
+
+model Project @notionDatabase("notion-database-id-2") {
+  name        String    @title
+  description String    @rich_text
+  startDate   Date
+  budget      Number
+  status      Select    @select
+}
