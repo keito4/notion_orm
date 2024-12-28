@@ -1,3 +1,10 @@
+generator client {
+  provider = "notion-orm"
+  output   = "./src/generated"
+  types    = "notionTypes.ts"
+  client   = "notionClient.ts"
+}
+
 model Task @notionDatabase("***REMOVED***") {
   Name              String    @title @map("Name")
   completed         Boolean?  @checkbox @map("完了")
