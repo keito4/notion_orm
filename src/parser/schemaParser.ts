@@ -1,4 +1,5 @@
 import { Schema, Model, Field } from '../types';
+import { NotionPropertyTypes } from '../types/notionTypes';
 import { logger } from '../utils/logger';
 
 export function parseSchema(content: string): Schema {
@@ -31,14 +32,14 @@ export function parseSchema(content: string): Schema {
         inModelBlock = false;
       } else if (inModelBlock && currentModel) {
         // Handle field declaration
-        const fieldMatch = line.match(/(\w+)\s+(\w+)(\?)?\s*((@\w+|\@map\("[^"]+"\))*)/);
+        const fieldMatch = line.match(/(\w+)\s+(\w+)(\?)?\s*((@\w+|\@map\([^)]+\))*)/);
         if (fieldMatch) {
           const [_, name, type, optional, attributesStr] = fieldMatch;
 
           // Extract all attributes
           const attributes: string[] = [];
           if (attributesStr) {
-            const attrMatches = attributesStr.match(/@\w+|\@map\("[^"]+"\)/g);
+            const attrMatches = attributesStr.match(/@\w+|\@map\([^)]+\)/g);
             if (attrMatches) {
               attributes.push(...attrMatches);
             }
@@ -49,11 +50,13 @@ export function parseSchema(content: string): Schema {
           const isCheckbox = attributes.includes('@checkbox');
 
           // Get mapped name if present
-          const mapMatch = attributes.find(attr => attr.startsWith('@map('))?.match(/@map\("([^"]+)"\)/);
-          const mappedName = mapMatch ? mapMatch[1] : name;
+          const mapMatch = attributes.find(attr => attr.startsWith('@map('))?.match(/@map\(([^)]+)\)/);
+          const mappedName = mapMatch ? mapMatch[1].replace(/['"]/g, '') : name;
+
+          logger.info(`Field ${name} mapped to "${mappedName}"`);
 
           currentModel.fields.push({
-            name,
+            name: mappedName,
             type: mapTypeToNotion(type, { isTitle, isCheckbox }),
             optional: Boolean(optional),
             attributes
@@ -83,22 +86,22 @@ function mapTypeToNotion(type: string, options: { isTitle: boolean; isCheckbox: 
 
   // If field is marked with @title, always use 'title' type
   if (isTitle) {
-    return 'title';
+    return NotionPropertyTypes.Title;
   }
 
   // If field is marked with @checkbox, use 'checkbox' type
   if (isCheckbox) {
-    return 'checkbox';
+    return NotionPropertyTypes.Checkbox;
   }
 
-  const typeMap: Record<string, string> = {
-    'String': 'rich_text',
-    'Number': 'number',
-    'Boolean': 'checkbox',
-    'Date': 'date',
-    'Select': 'select',
-    'MultiSelect': 'multi_select',
-    'People': 'people'
+  const typeMap: Record<string, NotionPropertyTypes> = {
+    'String': NotionPropertyTypes.RichText,
+    'Number': NotionPropertyTypes.Number,
+    'Boolean': NotionPropertyTypes.Checkbox,
+    'Date': NotionPropertyTypes.Date,
+    'Select': NotionPropertyTypes.Select,
+    'MultiSelect': NotionPropertyTypes.MultiSelect,
+    'People': NotionPropertyTypes.People
   };
 
   const mappedType = typeMap[type.replace('?', '')];

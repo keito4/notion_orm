@@ -1,6 +1,6 @@
 model Task @notionDatabase("***REMOVED***") {
   name        String    @title @map("Name")
-  date        Date?     @map("Date")
+  date        Date?     @map("日付")
   completed   Boolean   @checkbox @map("完了")
   emphasized  Boolean   @checkbox @map("注力")
   archived    Boolean   @checkbox @map("アーカイブ")

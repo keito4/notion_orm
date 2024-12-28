@@ -1,3 +1,5 @@
+import type { SelectPropertyResponse, MultiSelectPropertyResponse } from '@notionhq/client/build/src/api-endpoints';
+
 export enum NotionPropertyTypes {
   Title = 'title',
   RichText = 'rich_text',
@@ -9,13 +11,20 @@ export enum NotionPropertyTypes {
   URL = 'url',
   Email = 'email',
   PhoneNumber = 'phone_number',
-  Files = 'files'
+  Files = 'files',
+  People = 'people'
 }
 
 export interface NotionProperty {
   id: string;
   type: NotionPropertyTypes;
   name: string;
+}
+
+export interface NotionSelectOption {
+  id: string;
+  name: string;
+  color: string;
 }
 
 export interface NotionDatabase {
@@ -37,5 +46,5 @@ export interface NotionDatabase {
     plain_text: string;
     href: string | null;
   }>;
-  properties: Record<string, NotionProperty>;
+  properties: Record<string, SelectPropertyResponse | MultiSelectPropertyResponse | NotionProperty>;
 }
