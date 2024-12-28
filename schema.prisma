@@ -21,9 +21,7 @@ model Task @notionDatabase("***REMOVED***") {
   actionProgress    String?   @formula @map("Action進行度")
 }
 
-// DocumentモデルとDomainモデルを実装するには、実際のNotionデータベースIDが必要です
-/* 
-model Document @notionDatabase("DATABASE_ID_NEEDED") {
+model Document @notionDatabase("***REMOVED***") {
   title       String    @title @map("Title")
   content     String?   @richText @map("Content")
   status      String    @select @map("Status")
@@ -33,10 +31,9 @@ model Document @notionDatabase("DATABASE_ID_NEEDED") {
   author      Json?     @people @map("Author")
 }
 
-model Domain @notionDatabase("DATABASE_ID_NEEDED") {
+model Domain @notionDatabase("***REMOVED***") {
   name        String     @title @map("Name")
   description String?    @richText @map("Description")
   isActive    Boolean    @checkbox @map("Is Active")
   documents   Document[] @relation @map("Documents")
 }
-*/
