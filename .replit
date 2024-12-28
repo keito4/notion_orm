@@ -27,7 +27,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "NODE_OPTIONS='--loader ts-node/esm' npx ts-node --esm src/index.ts generate"
+args = "npx ts-node src/index.ts generate"
 
 [deployment]
-run = ["sh", "-c", "NODE_OPTIONS='--loader ts-node/esm' npx ts-node --esm src/index.ts generate"]
+run = ["sh", "-c", "npx ts-node src/index.ts generate"]

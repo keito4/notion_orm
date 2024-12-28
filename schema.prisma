@@ -1,10 +1,10 @@
-model Task @notionDatabase("notion-database-id-1") {
-  title       String    @title
-  description String?   @rich_text
-  status      Select    @select
-  dueDate     Date?
-  completed   Boolean   @checkbox
-  tags        MultiSelect
+model Task @notionDatabase("aac810fcb3414dbb9c46ce485bc6449b") {
+  name        String    @title
+  date        Date?     @map("日付")
+  completed   Boolean   @map("完了") @checkbox
+  emphasized  Boolean   @map("注力") @checkbox
+  archived    Boolean   @map("アーカイブ") @checkbox
+  manager     String?   @map("責任者")
 }
 
 model Project @notionDatabase("notion-database-id-2") {
