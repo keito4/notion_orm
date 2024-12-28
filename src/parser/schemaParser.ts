@@ -11,7 +11,6 @@ export function parseSchema(content: string): Schema {
 
     for (const line of lines) {
       if (line.startsWith('model')) {
-        // Handle model declaration
         const modelMatch = line.match(/model\s+(\w+)\s*@notionDatabase\("([^"]+)"\)/);
         if (!modelMatch) {
           throw new Error(`Invalid model declaration: ${line}`);
@@ -24,17 +23,15 @@ export function parseSchema(content: string): Schema {
         };
         inModelBlock = true;
       } else if (line === '}' && inModelBlock) {
-        // End of model block
         if (currentModel) {
           models.push(currentModel);
         }
         currentModel = null;
         inModelBlock = false;
       } else if (inModelBlock && currentModel) {
-        // Handle field declaration
-        const fieldMatch = line.match(/(\w+)\s+(\w+)(\?)?\s*((@\w+|\@map\([^)]+\))*)/);
+        const fieldMatch = line.match(/(\w+)\s+(\w+)(\[\])?(\?)?\s*((@\w+|\@map\([^)]+\))*)/);
         if (fieldMatch) {
-          const [_, name, type, optional, attributesStr] = fieldMatch;
+          const [_, name, type, isArray, optional, attributesStr] = fieldMatch;
 
           // Extract all attributes
           const attributes: string[] = [];
@@ -45,19 +42,18 @@ export function parseSchema(content: string): Schema {
             }
           }
 
-          // Check if field has specific attributes
-          const isTitle = attributes.includes('@title');
-          const isCheckbox = attributes.includes('@checkbox');
-
           // Get mapped name if present
           const mapMatch = attributes.find(attr => attr.startsWith('@map('))?.match(/@map\(([^)]+)\)/);
           const mappedName = mapMatch ? mapMatch[1].replace(/['"]/g, '') : name;
+
+          // Determine the correct Notion type based on attributes and type
+          const notionType = mapTypeToNotion(type, isArray, attributes);
 
           logger.info(`Field ${name} mapped to "${mappedName}"`);
 
           currentModel.fields.push({
             name: mappedName,
-            type: mapTypeToNotion(type, { isTitle, isCheckbox }),
+            type: notionType,
             optional: Boolean(optional),
             attributes
           });
@@ -65,7 +61,6 @@ export function parseSchema(content: string): Schema {
       }
     }
 
-    // Handle last model if exists
     if (currentModel && inModelBlock) {
       models.push(currentModel);
     }
@@ -81,30 +76,30 @@ export function parseSchema(content: string): Schema {
   }
 }
 
-function mapTypeToNotion(type: string, options: { isTitle: boolean; isCheckbox: boolean }): string {
-  const { isTitle, isCheckbox } = options;
-
-  // If field is marked with @title, always use 'title' type
-  if (isTitle) {
+function mapTypeToNotion(type: string, isArray: string | undefined, attributes: string[]): string {
+  // Check special attributes first
+  if (attributes.includes('@title')) {
     return NotionPropertyTypes.Title;
   }
-
-  // If field is marked with @checkbox, use 'checkbox' type
-  if (isCheckbox) {
+  if (attributes.includes('@checkbox')) {
     return NotionPropertyTypes.Checkbox;
   }
+  if (attributes.includes('@formula')) {
+    return NotionPropertyTypes.Formula;
+  }
+  if (attributes.includes('@relation') || isArray) {
+    return NotionPropertyTypes.Relation;
+  }
 
+  // Map basic types
   const typeMap: Record<string, NotionPropertyTypes> = {
     'String': NotionPropertyTypes.RichText,
     'Number': NotionPropertyTypes.Number,
     'Boolean': NotionPropertyTypes.Checkbox,
-    'Date': NotionPropertyTypes.Date,
-    'Select': NotionPropertyTypes.Select,
-    'MultiSelect': NotionPropertyTypes.MultiSelect,
-    'People': NotionPropertyTypes.People
+    'Json': NotionPropertyTypes.People,
   };
 
-  const mappedType = typeMap[type.replace('?', '')];
+  const mappedType = typeMap[type];
   if (!mappedType) {
     logger.warn(`Unknown type mapping for: ${type}, using as-is`);
     return type.toLowerCase();

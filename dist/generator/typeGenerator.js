@@ -8,16 +8,20 @@ const notionTypes_1 = require("../types/notionTypes");
 async function generateTypeDefinitions(schema) {
     try {
         (0, fs_1.mkdirSync)('./generated', { recursive: true });
-        // Notionクライアントを初期化
         const notionClient = new client_1.NotionClient();
-        // 各モデルのデータベースからプロパティ情報を取得
         const modelSchemas = await Promise.all(schema.models.map(async (model) => {
-            const database = await notionClient.getDatabaseSchema(model.notionDatabaseId);
-            return { model, database };
+            try {
+                const database = await notionClient.getDatabaseSchema(model.notionDatabaseId);
+                logger_1.logger.info(`Retrieved database schema for model ${model.name}`);
+                return { model, database };
+            }
+            catch (error) {
+                logger_1.logger.error(`Failed to retrieve database schema for model ${model.name}:`, error);
+                throw error;
+            }
         }));
-        // 型定義を生成
         const typeDefinitions = generateModelTypes(modelSchemas);
-        const indexFile = generateIndexFile(schema.models);
+        const indexFile = generateIndexFile();
         (0, fs_1.writeFileSync)('./generated/types.ts', typeDefinitions);
         (0, fs_1.writeFileSync)('./generated/index.ts', indexFile);
         logger_1.logger.info('Generated type definitions in ./generated/types.ts');
@@ -32,73 +36,43 @@ function generateModelTypes(modelSchemas) {
 import { NotionPropertyTypes } from '../types/notionTypes';
 
 ${modelSchemas.map(({ model, database }) => `
-${generatePropertyEnums(model, database)}
-
 export interface ${model.name} {
   id: string;
-  ${Object.entries(database.properties).map(([key, property]) => {
-        const tsType = mapNotionTypeToTS(property, model);
-        const optional = property.type !== notionTypes_1.NotionPropertyTypes.Title ? '?' : '';
-        return `${property.name}${optional}: ${tsType};`;
-    }).join('\n  ')}
+  ${Object.entries(database.properties)
+        .map(([key, prop]) => {
+        const typeStr = getPropertyType(prop.type);
+        const isOptional = prop.type !== notionTypes_1.NotionPropertyTypes.Title;
+        return `${key}${isOptional ? '?' : ''}: ${typeStr};`;
+    })
+        .join('\n  ')}
   createdTime: string;
   lastEditedTime: string;
 }
 
 export interface ${model.name}Input {
-  ${Object.entries(database.properties).map(([key, property]) => {
-        const tsType = mapNotionTypeToTS(property, model);
-        const optional = property.type !== notionTypes_1.NotionPropertyTypes.Title ? '?' : '';
-        return `${property.name}${optional}: ${tsType};`;
-    }).join('\n  ')}
+  ${Object.entries(database.properties)
+        .map(([key, prop]) => {
+        const typeStr = getPropertyType(prop.type);
+        const isOptional = prop.type !== notionTypes_1.NotionPropertyTypes.Title;
+        return `${key}${isOptional ? '?' : ''}: ${typeStr};`;
+    })
+        .join('\n  ')}
 }
 `).join('\n')}`;
 }
-function generatePropertyEnums(model, database) {
-    const enums = [];
-    // select/multi_selectプロパティの選択肢からEnumを生成
-    Object.entries(database.properties).forEach(([key, property]) => {
-        if (isSelectProperty(property) || isMultiSelectProperty(property)) {
-            const options = isSelectProperty(property)
-                ? property.select.options
-                : property.multi_select.options;
-            if (options && options.length > 0) {
-                const enumName = `${model.name}${capitalizeFirstLetter(property.name)}`;
-                const enumValues = options.map(opt => `  ${makeEnumKey(opt.name)} = "${opt.name}"`).join(',\n');
-                enums.push(`export enum ${enumName} {
-${enumValues}
-}`);
-            }
-        }
-    });
-    return enums.join('\n\n');
-}
-// Type guards for Notion property types
-function isSelectProperty(property) {
-    return property.type === notionTypes_1.NotionPropertyTypes.Select;
-}
-function isMultiSelectProperty(property) {
-    return property.type === notionTypes_1.NotionPropertyTypes.MultiSelect;
-}
-function mapNotionTypeToTS(property, model) {
-    switch (property.type) {
+function getPropertyType(type) {
+    switch (type) {
         case notionTypes_1.NotionPropertyTypes.Title:
         case notionTypes_1.NotionPropertyTypes.RichText:
             return 'string';
         case notionTypes_1.NotionPropertyTypes.Number:
             return 'number';
         case notionTypes_1.NotionPropertyTypes.Select:
-            if (isSelectProperty(property) && property.select?.options?.length) {
-                return `${model.name}${capitalizeFirstLetter(property.name)}`;
-            }
             return 'string';
         case notionTypes_1.NotionPropertyTypes.MultiSelect:
-            if (isMultiSelectProperty(property) && property.multi_select?.options?.length) {
-                return `${model.name}${capitalizeFirstLetter(property.name)}[]`;
-            }
             return 'string[]';
         case notionTypes_1.NotionPropertyTypes.Date:
-            return 'string';
+            return 'string | null';
         case notionTypes_1.NotionPropertyTypes.Checkbox:
             return 'boolean';
         case notionTypes_1.NotionPropertyTypes.People:
@@ -108,22 +82,13 @@ function mapNotionTypeToTS(property, model) {
         case notionTypes_1.NotionPropertyTypes.Formula:
             return 'any';
         default:
-            logger_1.logger.warn(`Unsupported Notion property type: ${String(property.type)}`);
-            return 'any';
+            logger_1.logger.warn(`Unsupported Notion property type: ${type}`);
+            return 'string';
     }
 }
-function generateIndexFile(models) {
+function generateIndexFile() {
     return `// Generated by notion-orm
 export * from './types';
 export * from './client';
 `;
-}
-function capitalizeFirstLetter(str) {
-    return str.charAt(0).toUpperCase() + str.slice(1);
-}
-function makeEnumKey(value) {
-    return value
-        .replace(/[^a-zA-Z0-9]/g, '_')
-        .replace(/^(\d)/, '_$1')
-        .toUpperCase();
 }
