@@ -1,4 +1,3 @@
-
 import { Client } from '@notionhq/client';
 import { Task } from './types';
 import { QueryBuilder } from '../query/builder';
@@ -33,9 +32,8 @@ export class NotionOrmClient {
     this.notion = new Client({ auth: apiKey });
   }
 
-  
   async getTask(id: string): Promise<Task> {
-    const response = await this.notion.pages.retrieve({ page_id: id }) as NotionPage;
+    const response = await this.notion.pages.retrieve({ page_id: id });
     return this.mapResponseToTask(response);
   }
 
@@ -43,37 +41,36 @@ export class NotionOrmClient {
     const response = await this.notion.databases.query({
       database_id: "aac810fcb3414dbb9c46ce485bc6449b"
     });
-    return response.results.map(page => this.mapResponseToTask(page as NotionPage));
+    return response.results.map(page => this.mapResponseToTask(page));
   }
 
   queryTasks(): QueryBuilder<Task> {
     return new QueryBuilder<Task>(this.notion, "aac810fcb3414dbb9c46ce485bc6449b", "Task");
   }
 
-  private mapResponseToTask(response: NotionPage): Task {
-    const props = response.properties;
+  private mapResponseToTask(page: any): Task {
+    const props = page.properties;
     return {
-      id: response.id,
-      "完了": props['完了']?.checkbox || false,
-      "注力": props['注力']?.checkbox || false,
-      "Sub-item": props['Sub-item']?.relation?.map((item: NotionRelation) => ({ id: item.id })) || [],
-      "似てるページ": props['似てるページ']?.relation?.map((item: NotionRelation) => ({ id: item.id })) || [],
-      "日付": props['日付']?.date?.start || null,
-      "責任者": props['責任者']?.people?.map((user: NotionUser) => ({
+      id: page.id,
+      Name: props['Name']?.title?.[0]?.plain_text || "",
+      completed: props['完了']?.checkbox || false,
+      emphasized: props['注力']?.checkbox || false,
+      subItem: props['Sub-item']?.relation?.map((item: any) => ({ id: item.id })) || [],
+      similarPage: props['似てるページ']?.relation?.map((item: any) => ({ id: item.id })) || [],
+      date: props['日付']?.date?.start || null,
+      manager: props['責任者']?.people?.map((user: any) => ({
         id: user.id,
         name: user.name || "",
         avatar_url: user.avatar_url
       })) || [],
-      "アーカイブ": props['アーカイブ']?.checkbox || false,
-      "OYKOT Timeline": props['OYKOT Timeline']?.relation?.map((item: NotionRelation) => ({ id: item.id })) || [],
-      "Action": props['Action']?.relation?.map((item: NotionRelation) => ({ id: item.id })) || [],
-      "Objective進行度": props['Objective進行度']?.formula?.string || props['Objective進行度']?.formula?.number?.toString() || "",
-      "Parent item": props['Parent item']?.relation?.map((item: NotionRelation) => ({ id: item.id })) || [],
-      "Action進行度": props['Action進行度']?.formula?.string || props['Action進行度']?.formula?.number?.toString() || "",
-      "Name": props['Name']?.title?.[0]?.plain_text || "",
-      createdTime: response.created_time,
-      lastEditedTime: response.last_edited_time
+      archived: props['アーカイブ']?.checkbox || false,
+      oykotTimeline: props['OYKOT Timeline']?.relation?.map((item: any) => ({ id: item.id })) || [],
+      action: props['Action']?.relation?.map((item: any) => ({ id: item.id })) || [],
+      objectiveProgress: props['Objective進行度']?.formula?.string || "",
+      parentItem: props['Parent item']?.relation?.map((item: any) => ({ id: item.id })) || [],
+      actionProgress: props['Action進行度']?.formula?.string || "",
+      createdTime: page.created_time,
+      lastEditedTime: page.last_edited_time
     };
   }
-  
 }

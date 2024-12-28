@@ -1,5 +1,6 @@
 import { Client } from '@notionhq/client';
 import { NotionPropertyTypes } from '../types/notionTypes';
+import { logger } from '../utils/logger';
 
 export type FilterOperator = 'equals' | 'contains' | 'startsWith' | 'endsWith' | 'before' | 'after' | 'on_or_before' | 'on_or_after' | 'is_empty' | 'is_not_empty';
 
@@ -19,12 +20,22 @@ export interface SortCondition {
   direction: 'ascending' | 'descending';
 }
 
+// キャッシュ管理のためのインターフェース
+interface RelationCache {
+  [key: string]: {
+    data: any;
+    timestamp: number;
+  };
+}
+
 export class QueryBuilder<T> {
   private filters: (FilterCondition | RelationFilter)[] = [];
   private sorts: SortCondition[] = [];
   private pageSize?: number;
   private startCursor?: string;
   private includedRelations: Set<string> = new Set();
+  private relationCache: RelationCache = {};
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5分間キャッシュを保持
 
   constructor(
     private notion: Client,
@@ -48,7 +59,6 @@ export class QueryBuilder<T> {
     const subBuilder = new QueryBuilder<R>(this.notion, '', relationProperty as string);
     relationFilter(subBuilder);
 
-    // サブビルダーのフィルターを取得
     const subFilters = subBuilder.getFilters();
     for (const filter of subFilters) {
       this.filters.push({
@@ -88,14 +98,12 @@ export class QueryBuilder<T> {
 
   private buildFilter(condition: FilterCondition | RelationFilter): any {
     if ('relationProperty' in condition) {
-      // リレーションフィルター
       return {
         property: condition.relationProperty,
         relation: this.buildFilter(condition.filter)
       };
     }
 
-    // 通常のフィルター
     const { property, operator, value } = condition;
 
     switch (operator) {
@@ -157,7 +165,7 @@ export class QueryBuilder<T> {
   }
 
   private getPropertyType(property: string): string {
-    // 実際のプロパティタイプは、スキーマ情報から取得する必要があります
+    // プロパティタイプをスキーマ情報から推測
     if (property === 'title') return NotionPropertyTypes.Title;
     if (property.endsWith('At')) return NotionPropertyTypes.Date;
     if (property === 'isActive') return NotionPropertyTypes.Checkbox;
@@ -192,14 +200,14 @@ export class QueryBuilder<T> {
       query.start_cursor = this.startCursor;
     }
 
+    logger.info(`Executing query for ${this.modelName}:`, query);
+
     const response = await this.notion.databases.query(query);
     const results = response.results.map(page => this.mapResponseToModel(page));
 
-    // リレーションの取得
+    // リレーションの取得（必要な場合のみ）
     if (this.includedRelations.size > 0) {
-      for (const result of results) {
-        await this.loadRelations(result);
-      }
+      await Promise.all(results.map(result => this.loadRelations(result)));
     }
 
     return results;
@@ -208,13 +216,41 @@ export class QueryBuilder<T> {
   private async loadRelations(model: any): Promise<void> {
     for (const relationProperty of this.includedRelations) {
       if (model[relationProperty]) {
-        const relationIds = model[relationProperty].map((rel: { id: string }) => rel.id);
+        const relationIds = Array.isArray(model[relationProperty]) 
+          ? model[relationProperty].map((rel: { id: string }) => rel.id)
+          : [model[relationProperty].id];
+
         const relationData = await Promise.all(
-          relationIds.map(id => this.notion.pages.retrieve({ page_id: id }))
+          relationIds.map(id => this.getRelationData(id))
         );
-        model[relationProperty] = relationData.map(page => this.mapResponseToModel(page));
+
+        // 単一のリレーションか配列かを維持
+        model[relationProperty] = Array.isArray(model[relationProperty])
+          ? relationData
+          : relationData[0];
       }
     }
+  }
+
+  private async getRelationData(id: string): Promise<any> {
+    // キャッシュチェック
+    const cached = this.relationCache[id];
+    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+      logger.info(`Using cached relation data for ID: ${id}`);
+      return cached.data;
+    }
+
+    // キャッシュがない場合は取得
+    const response = await this.notion.pages.retrieve({ page_id: id });
+    const mappedData = this.mapResponseToModel(response);
+
+    // キャッシュを更新
+    this.relationCache[id] = {
+      data: mappedData,
+      timestamp: Date.now()
+    };
+
+    return mappedData;
   }
 
   private mapResponseToModel(page: any): T {
@@ -253,10 +289,13 @@ export class QueryBuilder<T> {
           avatar_url: user.avatar_url
         })) || [];
       case NotionPropertyTypes.Relation:
-        return property.relation?.map((item: any) => ({ id: item.id })) || [];
+        // 単一のリレーションの場合は配列ではなくオブジェクトを返す
+        const relations = property.relation?.map((item: any) => ({ id: item.id })) || [];
+        return relations.length === 1 ? relations[0] : relations;
       case NotionPropertyTypes.Formula:
         return property.formula?.string || property.formula?.number?.toString() || '';
       default:
+        logger.warn(`Unsupported Notion property type: ${property.type}`);
         return '';
     }
   }

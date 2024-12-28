@@ -21,8 +21,9 @@ model Task @notionDatabase("aac810fcb3414dbb9c46ce485bc6449b") {
   actionProgress    String?   @formula @map("Action進行度")
 }
 
-// ドキュメントモデル
-model Document @notionDatabase("your-document-database-id") {
+// DocumentモデルとDomainモデルを実装するには、実際のNotionデータベースIDが必要です
+/* 
+model Document @notionDatabase("DATABASE_ID_NEEDED") {
   title       String    @title @map("Title")
   content     String?   @richText @map("Content")
   status      String    @select @map("Status")
@@ -32,10 +33,10 @@ model Document @notionDatabase("your-document-database-id") {
   author      Json?     @people @map("Author")
 }
 
-// ドメインモデル
-model Domain @notionDatabase("your-domain-database-id") {
+model Domain @notionDatabase("DATABASE_ID_NEEDED") {
   name        String     @title @map("Name")
   description String?    @richText @map("Description")
   isActive    Boolean    @checkbox @map("Is Active")
   documents   Document[] @relation @map("Documents")
 }
+*/
