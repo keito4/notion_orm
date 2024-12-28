@@ -3,37 +3,54 @@ import { logger } from '../utils/logger';
 
 export function parseSchema(content: string): Schema {
   try {
-    const lines = content.split('\n').filter(line => line.trim());
+    const lines = content.split('\n').map(line => line.trim()).filter(line => line);
     const models: Model[] = [];
     let currentModel: Model | null = null;
+    let inModelBlock = false;
 
     for (const line of lines) {
-      const trimmedLine = line.trim();
-      
-      if (trimmedLine.startsWith('model')) {
+      if (line.startsWith('model')) {
+        // Handle model declaration
+        const modelMatch = line.match(/model\s+(\w+)\s*@notionDatabase\("([^"]+)"\)/);
+        if (!modelMatch) {
+          throw new Error(`Invalid model declaration: ${line}`);
+        }
+
+        currentModel = {
+          name: modelMatch[1],
+          fields: [],
+          notionDatabaseId: modelMatch[2]
+        };
+        inModelBlock = true;
+      } else if (line === '}' && inModelBlock) {
+        // End of model block
         if (currentModel) {
           models.push(currentModel);
         }
-        currentModel = {
-          name: trimmedLine.split(' ')[1],
-          fields: [],
-          notionDatabaseId: extractNotionDatabaseId(trimmedLine)
-        };
-      } else if (trimmedLine.match(/^\w+\s+\w+(\?)?(\s+@\w+)?$/)) {
-        if (currentModel) {
-          const [name, type, ...attributes] = trimmedLine.split(/\s+/);
+        currentModel = null;
+        inModelBlock = false;
+      } else if (inModelBlock && currentModel) {
+        // Handle field declaration
+        const fieldMatch = line.match(/(\w+)\s+(\w+)(\?)?\s*(@\w+)?/);
+        if (fieldMatch) {
+          const [_, name, type, optional, attribute] = fieldMatch;
           currentModel.fields.push({
             name,
             type: mapTypeToNotion(type),
-            optional: type.endsWith('?'),
-            attributes: attributes.filter(attr => attr.startsWith('@'))
+            optional: Boolean(optional),
+            attributes: attribute ? [attribute] : []
           });
         }
       }
     }
 
-    if (currentModel) {
+    // Handle last model if exists
+    if (currentModel && inModelBlock) {
       models.push(currentModel);
+    }
+
+    if (models.length === 0) {
+      throw new Error('No valid models found in schema');
     }
 
     return { models };
@@ -41,11 +58,6 @@ export function parseSchema(content: string): Schema {
     logger.error('Error parsing schema:', error);
     throw error;
   }
-}
-
-function extractNotionDatabaseId(line: string): string {
-  const match = line.match(/@notionDatabase\("([^"]+)"\)/);
-  return match ? match[1] : '';
 }
 
 function mapTypeToNotion(type: string): string {
@@ -58,6 +70,11 @@ function mapTypeToNotion(type: string): string {
     'MultiSelect': 'multi_select',
     'Title': 'title'
   };
-  
+
   return typeMap[type.replace('?', '')] || type;
+}
+
+function extractNotionDatabaseId(line: string): string {
+  const match = line.match(/@notionDatabase\("([^"]+)"\)/);
+  return match ? match[1] : '';
 }
