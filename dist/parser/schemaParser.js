@@ -30,9 +30,12 @@ function parseSchema(content) {
                 inModelBlock = false;
             }
             else if (inModelBlock && currentModel) {
-                const fieldMatch = line.match(/(\w+)\s+(\w+)(\[\])?(\?)?\s*((@\w+|\@map\([^)]+\))*)/);
+                // Handle fields with double quotes
+                const fieldMatch = line.match(/(?:"[^"]+"|[\w]+)\s+(\w+)(\[\])?(\?)?\s*((@\w+|\@map\([^)]+\))*)/);
                 if (fieldMatch) {
-                    const [_, name, type, isArray, optional, attributesStr] = fieldMatch;
+                    const fieldName = line.match(/^(?:"([^"]+)"|(\w+))/);
+                    const name = fieldName ? (fieldName[1] || fieldName[2]) : '';
+                    const [_, type, isArray, optional, attributesStr] = fieldMatch;
                     // Extract all attributes
                     const attributes = [];
                     if (attributesStr) {
@@ -44,9 +47,8 @@ function parseSchema(content) {
                     // Get mapped name if present
                     const mapMatch = attributes.find(attr => attr.startsWith('@map('))?.match(/@map\(([^)]+)\)/);
                     const mappedName = mapMatch ? mapMatch[1].replace(/['"]/g, '') : name;
-                    // Determine the correct Notion type based on attributes and type
-                    const notionType = mapTypeToNotion(type, isArray, attributes);
                     logger_1.logger.info(`Field ${name} mapped to "${mappedName}"`);
+                    const notionType = mapTypeToNotion(type, isArray, attributes);
                     currentModel.fields.push({
                         name: mappedName,
                         type: notionType,
@@ -83,17 +85,23 @@ function mapTypeToNotion(type, isArray, attributes) {
     if (attributes.includes('@relation') || isArray) {
         return notionTypes_1.NotionPropertyTypes.Relation;
     }
+    if (attributes.includes('@people')) {
+        return notionTypes_1.NotionPropertyTypes.People;
+    }
+    if (attributes.includes('@date')) {
+        return notionTypes_1.NotionPropertyTypes.Date;
+    }
     // Map basic types
     const typeMap = {
         'String': notionTypes_1.NotionPropertyTypes.RichText,
         'Number': notionTypes_1.NotionPropertyTypes.Number,
         'Boolean': notionTypes_1.NotionPropertyTypes.Checkbox,
-        'Json': notionTypes_1.NotionPropertyTypes.People,
+        'Json': notionTypes_1.NotionPropertyTypes.RichText,
     };
     const mappedType = typeMap[type];
     if (!mappedType) {
-        logger_1.logger.warn(`Unknown type mapping for: ${type}, using as-is`);
-        return type.toLowerCase();
+        logger_1.logger.warn(`Unknown type mapping for: ${type}, using RichText as default`);
+        return notionTypes_1.NotionPropertyTypes.RichText;
     }
     return mappedType;
 }

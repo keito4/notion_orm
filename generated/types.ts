@@ -4,35 +4,35 @@ import { NotionPropertyTypes } from '../types/notionTypes';
 
 export interface Task {
   id: string;
-  完了?: boolean;
-  注力?: boolean;
-  Sub-item?: Array<{ id: string }>;
-  似てるページ?: Array<{ id: string }>;
-  日付?: string | null;
-  責任者?: Array<{ id: string; name: string; avatar_url?: string }>;
-  アーカイブ?: boolean;
-  OYKOT Timeline?: Array<{ id: string }>;
+  '完了'?: boolean;
+  '注力'?: boolean;
+  'Sub-item'?: Array<{ id: string }>;
+  '似てるページ'?: Array<{ id: string }>;
+  '日付'?: string | null;
+  '責任者'?: Array<{ id: string; name: string; avatar_url?: string }>;
+  'アーカイブ'?: boolean;
+  'OYKOT Timeline'?: Array<{ id: string }>;
   Action?: Array<{ id: string }>;
-  Objective進行度?: any;
-  Parent item?: Array<{ id: string }>;
-  Action進行度?: any;
+  'Objective進行度'?: string;
+  'Parent item'?: Array<{ id: string }>;
+  'Action進行度'?: string;
   Name: string;
   createdTime: string;
   lastEditedTime: string;
 }
 
 export interface TaskInput {
-  完了?: boolean;
-  注力?: boolean;
-  Sub-item?: Array<{ id: string }>;
-  似てるページ?: Array<{ id: string }>;
-  日付?: string | null;
-  責任者?: Array<{ id: string; name: string; avatar_url?: string }>;
-  アーカイブ?: boolean;
-  OYKOT Timeline?: Array<{ id: string }>;
+  '完了'?: boolean;
+  '注力'?: boolean;
+  'Sub-item'?: Array<{ id: string }>;
+  '似てるページ'?: Array<{ id: string }>;
+  '日付'?: string | null;
+  '責任者'?: Array<{ id: string; name: string; avatar_url?: string }>;
+  'アーカイブ'?: boolean;
+  'OYKOT Timeline'?: Array<{ id: string }>;
   Action?: Array<{ id: string }>;
-  Objective進行度?: any;
-  Parent item?: Array<{ id: string }>;
-  Action進行度?: any;
+  'Objective進行度'?: string;
+  'Parent item'?: Array<{ id: string }>;
+  'Action進行度'?: string;
   Name: string;
 }
