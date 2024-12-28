@@ -1,6 +1,7 @@
 
 import { Client } from '@notionhq/client';
 import { Task } from './types';
+import { QueryBuilder } from '../query/builder';
 
 interface NotionPropertyValue {
   id: string;
@@ -43,6 +44,10 @@ export class NotionOrmClient {
       database_id: "aac810fcb3414dbb9c46ce485bc6449b"
     });
     return response.results.map(page => this.mapResponseToTask(page as NotionPage));
+  }
+
+  queryTasks(): QueryBuilder<Task> {
+    return new QueryBuilder<Task>(this.notion, "aac810fcb3414dbb9c46ce485bc6449b", "Task");
   }
 
   private mapResponseToTask(response: NotionPage): Task {
