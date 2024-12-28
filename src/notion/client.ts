@@ -46,67 +46,65 @@ export class NotionClient {
 
   private async validateDatabaseSchema(model: Model, database: any): Promise<void> {
     const notionProperties = database.properties;
-    const missingProperties: string[] = [];
     const typeMismatches: Array<{ field: string; expected: string; got: string }> = [];
 
     logger.info('Notion database properties:', notionProperties);
 
     for (const field of model.fields) {
-      const property = this.findPropertyCaseInsensitive(notionProperties, field.name);
+      const mappedName = this.getMappedName(field.attributes, field.name);
+      logger.info(`Validating field ${field.name} with mapped name "${mappedName}"`);
+
+      // プロパティを大文字小文字を区別せずに検索
+      const property = this.findPropertyCaseInsensitive(notionProperties, mappedName);
 
       if (!property) {
-        missingProperties.push(field.name);
+        logger.warn(`Property not found for field ${field.name} (mapped: ${mappedName})`);
+        typeMismatches.push({
+          field: field.name,
+          expected: field.type,
+          got: 'not found'
+        });
         continue;
       }
 
-      const expectedType = this.mapSchemaTypeToNotionType(field.type);
-      if (property.type !== expectedType) {
+      logger.info(`Found property for ${field.name}: ${JSON.stringify(property)}`);
+
+      const expectedType = field.type.toLowerCase();
+      const actualType = property.type;
+
+      if (expectedType !== actualType) {
         typeMismatches.push({
           field: field.name,
           expected: expectedType,
-          got: property.type
+          got: actualType
         });
       }
     }
 
-    if (missingProperties.length > 0 || typeMismatches.length > 0) {
+    if (typeMismatches.length > 0) {
       let errorMessage = `Schema validation failed for model ${model.name}:\n`;
-
-      if (missingProperties.length > 0) {
-        errorMessage += `Missing properties: ${missingProperties.join(', ')}\n`;
-      }
-
-      if (typeMismatches.length > 0) {
-        errorMessage += 'Type mismatches:\n';
-        typeMismatches.forEach(({ field, expected, got }) => {
-          errorMessage += `  - ${field}: expected ${expected}, got ${got}\n`;
-        });
-      }
-
+      errorMessage += 'Type mismatches:\n';
+      typeMismatches.forEach(({ field, expected, got }) => {
+        errorMessage += `  - ${field}: expected ${expected}, got ${got}\n`;
+      });
       throw new Error(errorMessage);
     }
   }
 
-  private findPropertyCaseInsensitive(properties: Record<string, any>, fieldName: string): any {
-    const lowerFieldName = fieldName.toLowerCase();
-    const propertyEntry = Object.entries(properties).find(
-      ([key]) => key.toLowerCase() === lowerFieldName
-    );
-    return propertyEntry ? propertyEntry[1] : null;
+  private getMappedName(attributes: string[], defaultName: string): string {
+    const mapAttribute = attributes.find(attr => attr.startsWith('@map('));
+    if (!mapAttribute) return defaultName;
+
+    const match = mapAttribute.match(/@map\("([^"]+)"\)/);
+    return match ? match[1] : defaultName;
   }
 
-  private mapSchemaTypeToNotionType(schemaType: string): string {
-    const typeMap: Record<string, string> = {
-      'String': 'rich_text',
-      'Number': 'number',
-      'Boolean': 'checkbox',
-      'Date': 'date',
-      'Select': 'select',
-      'MultiSelect': 'multi_select',
-      'Title': 'title'
-    };
-
-    return typeMap[schemaType] || schemaType;
+  private findPropertyCaseInsensitive(properties: Record<string, any>, fieldName: string): any {
+    const lowerFieldName = fieldName.toLowerCase();
+    const entry = Object.entries(properties).find(
+      ([key]) => key.toLowerCase() === lowerFieldName
+    );
+    return entry ? entry[1] : null;
   }
 
   async getDatabaseSchema(databaseId: string): Promise<any> {

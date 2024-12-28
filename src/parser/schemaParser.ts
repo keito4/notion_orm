@@ -31,14 +31,32 @@ export function parseSchema(content: string): Schema {
         inModelBlock = false;
       } else if (inModelBlock && currentModel) {
         // Handle field declaration
-        const fieldMatch = line.match(/(\w+)\s+(\w+)(\?)?\s*(@\w+)?/);
+        const fieldMatch = line.match(/(\w+)\s+(\w+)(\?)?\s*((@\w+|\@map\("[^"]+"\))*)/);
         if (fieldMatch) {
-          const [_, name, type, optional, attribute] = fieldMatch;
+          const [_, name, type, optional, attributesStr] = fieldMatch;
+
+          // Extract all attributes
+          const attributes: string[] = [];
+          if (attributesStr) {
+            const attrMatches = attributesStr.match(/@\w+|\@map\("[^"]+"\)/g);
+            if (attrMatches) {
+              attributes.push(...attrMatches);
+            }
+          }
+
+          // Check if field has specific attributes
+          const isTitle = attributes.includes('@title');
+          const isCheckbox = attributes.includes('@checkbox');
+
+          // Get mapped name if present
+          const mapMatch = attributes.find(attr => attr.startsWith('@map('))?.match(/@map\("([^"]+)"\)/);
+          const mappedName = mapMatch ? mapMatch[1] : name;
+
           currentModel.fields.push({
             name,
-            type: mapTypeToNotion(type),
+            type: mapTypeToNotion(type, { isTitle, isCheckbox }),
             optional: Boolean(optional),
-            attributes: attribute ? [attribute] : []
+            attributes
           });
         }
       }
@@ -60,7 +78,19 @@ export function parseSchema(content: string): Schema {
   }
 }
 
-function mapTypeToNotion(type: string): string {
+function mapTypeToNotion(type: string, options: { isTitle: boolean; isCheckbox: boolean }): string {
+  const { isTitle, isCheckbox } = options;
+
+  // If field is marked with @title, always use 'title' type
+  if (isTitle) {
+    return 'title';
+  }
+
+  // If field is marked with @checkbox, use 'checkbox' type
+  if (isCheckbox) {
+    return 'checkbox';
+  }
+
   const typeMap: Record<string, string> = {
     'String': 'rich_text',
     'Number': 'number',
@@ -68,13 +98,14 @@ function mapTypeToNotion(type: string): string {
     'Date': 'date',
     'Select': 'select',
     'MultiSelect': 'multi_select',
-    'Title': 'title'
+    'People': 'people'
   };
 
-  return typeMap[type.replace('?', '')] || type;
-}
+  const mappedType = typeMap[type.replace('?', '')];
+  if (!mappedType) {
+    logger.warn(`Unknown type mapping for: ${type}, using as-is`);
+    return type.toLowerCase();
+  }
 
-function extractNotionDatabaseId(line: string): string {
-  const match = line.match(/@notionDatabase\("([^"]+)"\)/);
-  return match ? match[1] : '';
+  return mappedType;
 }

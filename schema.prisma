@@ -1,16 +1,16 @@
 model Task @notionDatabase("***REMOVED***") {
-  name        String    @title
-  date        Date?     @map("日付")
-  completed   Boolean   @map("完了") @checkbox
-  emphasized  Boolean   @map("注力") @checkbox
-  archived    Boolean   @map("アーカイブ") @checkbox
-  manager     String?   @map("責任者")
+  name        String    @title @map("Name")
+  date        Date?     @map("Date")
+  completed   Boolean   @checkbox @map("完了")
+  emphasized  Boolean   @checkbox @map("注力")
+  archived    Boolean   @checkbox @map("アーカイブ")
+  manager     People?   @map("責任者")
 }
 
 model Project @notionDatabase("notion-database-id-2") {
   name        String    @title
-  description String    @rich_text
+  description String
   startDate   Date
   budget      Number
-  status      Select    @select
+  status      String
 }
