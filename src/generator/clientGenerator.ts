@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import { NotionPropertyTypes } from '../types/notionTypes';
 import { resolve, dirname } from 'path';
 import { mkdirSync } from 'fs';
+import { QueryBuilder } from '../query/builder';
 
 interface NotionPropertyValue {
   id: string;
@@ -53,6 +54,7 @@ function generateClientCode(schema: Schema): string {
   return `
 import { Client } from '@notionhq/client';
 import { ${schema.models.map(m => m.name).join(', ')} } from './${typeFile.replace(/\.ts$/, '')}';
+import { QueryBuilder } from '../query/builder';
 
 interface NotionPropertyValue {
   id: string;
@@ -95,6 +97,10 @@ export class NotionOrmClient {
       database_id: "${model.notionDatabaseId}"
     });
     return response.results.map(page => this.mapResponseTo${model.name}(page as NotionPage));
+  }
+
+  query${model.name}s(): QueryBuilder<${model.name}> {
+    return new QueryBuilder<${model.name}>(this.notion, "${model.notionDatabaseId}", "${model.name}");
   }
 
   private mapResponseTo${model.name}(response: NotionPage): ${model.name} {
