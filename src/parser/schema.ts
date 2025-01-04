@@ -1,6 +1,6 @@
-import { Schema, Model, Field } from '../types';
-import { logger } from '../utils/logger';
-import { NotionPropertyTypes } from '../types/notionTypes';
+import { Schema, Model, Field } from "../types";
+import { logger } from "../utils/logger";
+import { NotionPropertyTypes } from "../types/notionTypes";
 
 interface PrismaModel {
   name: string;
@@ -17,31 +17,32 @@ interface PrismaField {
 }
 
 export class SchemaParser {
-  private static readonly DATABASE_ATTRIBUTE = 'notionDatabase';
-  private static readonly MAP_ATTRIBUTE = 'map';
-  private static readonly TITLE_ATTRIBUTE = 'title';
-  private static readonly CHECKBOX_ATTRIBUTE = 'checkbox';
-  private static readonly DATE_ATTRIBUTE = 'date';
-  private static readonly PEOPLE_ATTRIBUTE = 'people';
-  private static readonly SELECT_ATTRIBUTE = 'select';
-  private static readonly MULTI_SELECT_ATTRIBUTE = 'multiSelect';
-  private static readonly RELATION_ATTRIBUTE = 'relation';
-  private static readonly FORMULA_ATTRIBUTE = 'formula';
-  private static readonly RICH_TEXT_ATTRIBUTE = 'richText';
+  private static readonly DATABASE_ATTRIBUTE = "notionDatabase";
+  private static readonly MAP_ATTRIBUTE = "map";
+  private static readonly TITLE_ATTRIBUTE = "title";
+  private static readonly CHECKBOX_ATTRIBUTE = "checkbox";
+  private static readonly DATE_ATTRIBUTE = "date";
+  private static readonly PEOPLE_ATTRIBUTE = "people";
+  private static readonly SELECT_ATTRIBUTE = "select";
+  private static readonly MULTI_SELECT_ATTRIBUTE = "multiSelect";
+  private static readonly RELATION_ATTRIBUTE = "relation";
+  private static readonly FORMULA_ATTRIBUTE = "formula";
+  private static readonly RICH_TEXT_ATTRIBUTE = "richText";
 
   static parse(schemaContent: string): Schema {
     try {
-      logger.debug('Starting schema parsing...');
+      logger.debug("Starting schema parsing...");
       const models = this.parseModels(schemaContent);
       return { models };
     } catch (error) {
-      logger.error('Error parsing schema:', error);
+      logger.error("Error parsing schema:", error);
       throw new Error(`Failed to parse schema: ${error}`);
     }
   }
 
   private static parseModels(content: string): Model[] {
-    const modelRegex = /model\s+(\w+)\s+@notionDatabase\("([^"]+)"\)\s*{([^}]+)}/g;
+    const modelRegex =
+      /model\s+(\w+)\s+@notionDatabase\("([^"]+)"\)\s*{([^}]+)}/g;
     const models: Model[] = [];
     let match;
 
@@ -52,7 +53,7 @@ export class SchemaParser {
       models.push({
         name,
         fields,
-        notionDatabaseId: databaseId
+        notionDatabaseId: databaseId,
       });
     }
 
@@ -66,7 +67,12 @@ export class SchemaParser {
 
     while ((match = fieldRegex.exec(fieldsContent)) !== null) {
       const [_, name, type, optional, attributes] = match;
-      const parsedField = this.parseField(name, type, optional === '?', attributes || '');
+      const parsedField = this.parseField(
+        name,
+        type,
+        optional === "?",
+        attributes || ""
+      );
       fields.push(parsedField);
     }
 
@@ -98,7 +104,7 @@ export class SchemaParser {
       name,
       type: this.mapPrismaTypeToNotionType(type, attributes),
       optional,
-      attributes
+      attributes,
     };
 
     if (notionMapping) {
@@ -108,13 +114,20 @@ export class SchemaParser {
     return field;
   }
 
-  private static mapPrismaTypeToNotionType(type: string, attributes: string[]): string {
-    // 属性ベースのマッピング
-    const hasAttribute = (attr: string) => attributes.some(a => a.startsWith(attr));
+  private static mapPrismaTypeToNotionType(
+    type: string,
+    attributes: string[]
+  ): string {
+    // 属性ベースのマッピング（完全一致またはパラメータ付き）
+    const hasAttribute = (attr: string) =>
+      attributes.some((a) => a === attr || a.startsWith(`${attr}(`));
 
+    // タイトルフィールドの判定
     if (hasAttribute(this.TITLE_ATTRIBUTE)) {
       return NotionPropertyTypes.Title;
     }
+
+    // その他の属性による判定
     if (hasAttribute(this.CHECKBOX_ATTRIBUTE)) {
       return NotionPropertyTypes.Checkbox;
     }
@@ -140,19 +153,47 @@ export class SchemaParser {
       return NotionPropertyTypes.RichText;
     }
 
-    // 型ベースのデフォルトマッピング
+    // 型に基づくマッピング
     switch (type.toLowerCase()) {
-      case 'string':
+      case "string":
         return NotionPropertyTypes.RichText;
-      case 'boolean':
+      case "boolean":
+      case "checkbox":
         return NotionPropertyTypes.Checkbox;
-      case 'datetime':
+      case "created_time":
+        return NotionPropertyTypes.CreatedTime;
+      case "datetime":
+      case "date":
         return NotionPropertyTypes.Date;
-      case 'json':
+      case "people":
+      case "created_by":
         return NotionPropertyTypes.People;
-      case 'string[]':
+      case "multi_select":
         return NotionPropertyTypes.MultiSelect;
+      case "relation":
+      case "relations":
+        return NotionPropertyTypes.Relation;
+      case "formula":
+        return NotionPropertyTypes.Formula;
+      case "title":
+        return NotionPropertyTypes.Title;
       default:
+        if (type.includes("relation") || type.includes("Relation")) {
+          return NotionPropertyTypes.Relation;
+        }
+        if (type.includes("formula") || type.includes("Formula")) {
+          return NotionPropertyTypes.Formula;
+        }
+        logger.debug(
+          `Unknown type "${type}", checking if it matches any Notion types...`
+        );
+        if (
+          Object.values(NotionPropertyTypes).includes(
+            type as NotionPropertyTypes
+          )
+        ) {
+          return type as NotionPropertyTypes;
+        }
         logger.warn(`Unknown Prisma type: ${type}, defaulting to rich_text`);
         return NotionPropertyTypes.RichText;
     }
