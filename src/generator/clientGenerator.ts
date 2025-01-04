@@ -1,17 +1,38 @@
+// generateClient.ts
+
 import { writeFileSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { Schema } from "../types";
 import { logger } from "../utils/logger";
 import { NotionPropertyTypes } from "../types/notionTypes";
 
+/**
+ * この関数は:
+ * - 各モデルの設定ファイルを `generated/models/ModelName.ts` に出力
+ * - `generated/client.ts` を作成し、そこからモデル設定をインポートして
+ *   QueryBuilder を初期化するコードを生成
+ */
 export async function generateClient(schema: Schema): Promise<void> {
   try {
     const outputDir = schema.output?.directory || "./generated";
     const clientFile = schema.output?.clientFile || "client.ts";
+    const modelsDir = resolve(outputDir, "models");
+    mkdirSync(modelsDir, { recursive: true }); // modelsフォルダを作成
+
+    // ① 各モデル設定ファイルを出力
+    for (const model of schema.models) {
+      const filePath = resolve(modelsDir, `${model.name}.ts`);
+      const modelSettingsCode = generateModelSettingsFile(model);
+      writeFileSync(filePath, modelSettingsCode);
+      logger.info(`Generated model settings for ${model.name}: ${filePath}`);
+    }
+
+    // ② client.ts を生成
+    const clientCode = generateClientFile(schema);
     const outputPath = resolve(outputDir, clientFile);
     mkdirSync(dirname(outputPath), { recursive: true });
-    const clientCode = generateClientCode(schema);
     writeFileSync(outputPath, clientCode);
+
     logger.info(`Generated client code in ${outputPath}`);
   } catch (error) {
     logger.error("Error generating client:", error);
@@ -19,17 +40,95 @@ export async function generateClient(schema: Schema): Promise<void> {
   }
 }
 
-function generateClientCode(schema: Schema): string {
-  const typeFile = schema.output?.typeDefinitionFile || "types";
-  logger.info(typeFile);
-  logger.info(JSON.stringify(schema));
+/**
+ * 各モデル設定ファイルのコードを生成
+ */
+function generateModelSettingsFile(model: any): string {
+  // model.fields から "TypeScriptフィールド名" "Notionプロパティ名" "Notionプロパティタイプ" を設定
+  // ここでは簡単に "notionName" があればそれを使い、なければ field.name を使う例にします。
+  // type も仮で field.type を NotionPropertyTypes.xxx に直接変換するとします。
+  // 実運用ではもっと精緻なマッピングが必要かもしれません。
+
+  const propertyMappings: Record<string, string> = {};
+  const propertyTypes: Record<string, string> = {};
+
+  for (const field of model.fields) {
+    const notionName = field.notionName || field.name;
+    propertyMappings[field.name] = notionName;
+
+    // Prisma type → NotionPropertyTypes の仮マッピング
+    // ここでは既存の "field.type" をそのまま使う
+    propertyTypes[field.name] = field.type;
+  }
+
+  // JSON文字列化
+  const mappingsStr = JSON.stringify(propertyMappings, null, 2);
+  const typesStr = JSON.stringify(propertyTypes, null, 2);
+
+  return `import { NotionPropertyTypes } from "../../src/types/notionTypes";
+
+export const ${model.name}ModelSettings = {
+  notionDatabaseId: "${model.notionDatabaseId}",
+  propertyMappings: ${mappingsStr},
+  propertyTypes: {
+    ${getNotionPropertyTypes(propertyTypes)}
+  }
+};
+`;
+}
+
+function getNotionPropertyTypes(propertyTypes: Record<string, string>): string {
+  return Object.entries(propertyTypes)
+    .map(([key, value]) => `${key}: ${toNotionPropertyTypes(value)}`)
+    .join(",\n    ");
+}
+
+function toNotionPropertyTypes(str: string): string {
+  // rich_text -> RichText
+  return (
+    "NotionPropertyTypes." +
+    str.replace(/^([a-z])|_([a-z])/g, (match, p1, p2) =>
+      (p1 || p2).toUpperCase()
+    )
+  );
+}
+
+/**
+ * `generated/client.ts` のコード生成
+ */
+function generateClientFile(schema: Schema): string {
+  // modelsフォルダのファイルをインポートしてQueryBuilderに流す
+  // 例: import { ObjectiveModelSettings } from "./models/Objective";
+  const importLines = schema.models
+    .map((m) => `import { ${m.name}ModelSettings } from "./models/${m.name}";`)
+    .join("\n");
+
+  // query${Model}() メソッドの実装を作る
+  const queryMethods = schema.models
+    .map((model) => {
+      return `
+  query${model.name}s(): QueryBuilder<${model.name}> {
+    return new QueryBuilder<${model.name}>(
+      this.notion,
+      ${model.name}ModelSettings.notionDatabaseId,
+      "${model.name}",
+      {},
+      { "${model.name}": ${model.name}ModelSettings.propertyMappings },
+      { "${model.name}": ${model.name}ModelSettings.propertyTypes }
+    );
+  }
+`;
+    })
+    .join("\n");
 
   return `
-import { Client } from '@notionhq/client';
-import { ${schema.models
-    .map((m) => m.name)
-    .join(", ")} } from './${typeFile.replace(/\.ts$/, "")}';
-import { QueryBuilder } from '../src/query/builder';
+import { Client } from "@notionhq/client";
+import { QueryBuilder } from "../src/query/builder";
+import { ${schema.models.map((m) => m.name).join(", ")} } from "./${
+    schema.output?.typeDefinitionFile?.replace(/\.ts$/, "") || "types"
+  }";
+
+${importLines}
 
 export class NotionOrmClient {
   private notion: Client;
@@ -37,84 +136,8 @@ export class NotionOrmClient {
   constructor(apiKey: string) {
     this.notion = new Client({ auth: apiKey });
   }
-  ${schema.models
-    .map(
-      (model) => `
-  async get${model.name}(id: string): Promise<${model.name}> {
-    const response = await this.notion.pages.retrieve({ page_id: id });
-    return this.mapResponseTo${model.name}(response);
-  }
 
-  async list${model.name}s(): Promise<${model.name}[]> {
-    const response = await this.notion.databases.query({
-      database_id: "${model.notionDatabaseId}"
-    });
-    return response.results.map(page => this.mapResponseTo${model.name}(page));
-  }
-
-  query${model.name}s(): QueryBuilder<${model.name}> {
-    return new QueryBuilder<${model.name}>(this.notion, "${
-        model.notionDatabaseId
-      }", "${model.name}");
-  }
-
-  private mapResponseTo${model.name}(page: any): ${model.name} {
-    const props = page.properties;
-    return {
-      id: page.id,
-      ${model.fields
-        .map((field) => {
-          const propAccess = `props['${field.notionName}']`;
-          return `${JSON.stringify(field.name)}: ${mapNotionResponseToProperty(
-            field.type,
-            propAccess
-          )}`;
-        })
-        .join(",\n      ")},
-      createdTime: page.created_time,
-      lastEditedTime: page.last_edited_time
-    };
-  }
-`
-    )
-    .join("\n")}
+  ${queryMethods}
 }
 `;
-}
-
-function mapNotionResponseToProperty(
-  type: string,
-  propertyPath: string
-): string {
-  switch (type) {
-    case NotionPropertyTypes.Title:
-      return `${propertyPath}?.title?.[0]?.plain_text || ""`;
-    case NotionPropertyTypes.RichText:
-      return `${propertyPath}?.rich_text?.[0]?.plain_text || ""`;
-    case NotionPropertyTypes.Number:
-      return `${propertyPath}?.number || 0`;
-    case NotionPropertyTypes.Select:
-      return `${propertyPath}?.select?.name || ""`;
-    case NotionPropertyTypes.MultiSelect:
-      return `${propertyPath}?.multi_select?.map((item: any) => item.name) || []`;
-    case NotionPropertyTypes.Date:
-      return `${propertyPath}?.date?.start || null`;
-    case NotionPropertyTypes.Checkbox:
-      return `${propertyPath}?.checkbox || false`;
-    case NotionPropertyTypes.People:
-      return `${propertyPath}?.people?.map((user: any) => ({
-        id: user.id,
-        name: user.name || "",
-        avatar_url: user.avatar_url
-      })) || []`;
-    case NotionPropertyTypes.Relation:
-      return `${propertyPath}?.relation?.map((item: any) => ({ id: item.id })) || []`;
-    case NotionPropertyTypes.Formula:
-      return `${propertyPath}?.formula?.string || ${propertyPath}?.formula?.number?.toString() || ""`;
-    default:
-      logger.warn(
-        `Unsupported Notion property type: ${type}, using default string conversion`
-      );
-      return `String(${propertyPath} || "")`;
-  }
 }
