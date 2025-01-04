@@ -33,8 +33,9 @@ export class NotionOrmClient {
         Status: 'Status',
         Domain: 'Domain',
         Tags: 'Tags',
-        CreatedAt: 'Created At',
-        Author: 'Author'
+        'Created At': 'Created At',  // Ensure exact match with Notion property name
+        Author: 'Author',
+        createdTime: 'Created At'    // Add mapping for createdTime to Created At
       },
       Domain: {
         Name: 'Name',

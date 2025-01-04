@@ -27,7 +27,7 @@ export interface Document {
   Status: string;
   Domain?: Array<{ id: string }>;
   Tags?: string[];
-  CreatedAt?: string | null;
+  'Created At'?: string | null;  // Changed from CreatedAt to match Notion property name
   Author?: Array<{ id: string; name: string; avatar_url?: string }>;
   createdTime: string;
   lastEditedTime: string;
@@ -65,7 +65,7 @@ export interface DocumentInput {
   Status: string;
   Domain?: Array<{ id: string }>;
   Tags?: string[];
-  CreatedAt?: string | null;
+  'Created At'?: string | null;  // Changed from CreatedAt to match Notion property name
   Author?: Array<{ id: string; name: string; avatar_url?: string }>;
 }
 

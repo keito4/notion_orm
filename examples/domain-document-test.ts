@@ -13,7 +13,7 @@ async function main() {
         domain.where('Name', 'equals', '技術ブログ')
       )
       .include('Domain')
-      .orderBy('createdTime', 'descending')
+      .orderBy('Created At', 'descending')  // Changed from createdTime to Created At
       .execute();
 
     logger.info(`Found ${techDocs.length} documents in 技術ブログ domain`);
@@ -21,7 +21,7 @@ async function main() {
       logger.info('---Document---');
       logger.info(`Title: ${doc.Title}`);
       logger.info(`Status: ${doc.Status}`);
-      logger.info(`Created At: ${doc.CreatedAt}`);
+      logger.info(`Created At: ${doc['Created At']}`);  // Changed from doc.CreatedAt to bracket notation
       if (doc.Domain && doc.Domain.length > 0) {
         doc.Domain.forEach(domain => {
           logger.info(`Domain ID: ${domain.id}`);
@@ -45,26 +45,6 @@ async function main() {
         logger.info(`Documents: ${domain.Documents.length}`);
         domain.Documents.forEach((doc) => {
           logger.info(`  - Document ID: ${doc.id}`);
-        });
-      }
-    });
-
-    // Test 3: Query documents with multiple domains
-    logger.info('\nQuerying documents with multiple domains...');
-    const multiDomainDocs = await client.queryDocuments()
-      .where('Domain', 'is_not_empty', true)
-      .include('Domain')
-      .execute();
-
-    logger.info(`Found ${multiDomainDocs.length} documents with domain relationships`);
-    multiDomainDocs.forEach((doc: Document) => {
-      logger.info('---Multi-Domain Document---');
-      logger.info(`Title: ${doc.Title}`);
-      logger.info(`Status: ${doc.Status}`);
-      if (doc.Domain && doc.Domain.length > 0) {
-        logger.info(`Number of associated domains: ${doc.Domain.length}`);
-        doc.Domain.forEach(domain => {
-          logger.info(`  - Domain ID: ${domain.id}`);
         });
       }
     });

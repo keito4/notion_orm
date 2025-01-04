@@ -42,10 +42,26 @@ export class QueryBuilder<T> {
     private modelName: string,
     private relationMappings: Record<string, Record<string, string>> = {},
     private propertyMappings: Record<string, Record<string, string>> = {}
-  ) {}
+  ) {
+    logger.debug(`Initializing QueryBuilder for ${modelName} with database ID ${databaseId}`);
+  }
+
+  private getMappedPropertyName(property: string): string {
+    const modelMappings = this.propertyMappings[this.modelName];
+    if (modelMappings) {
+      const mappedName = modelMappings[property];
+      if (mappedName) {
+        logger.debug(`Mapped property ${property} to ${mappedName}`);
+        return mappedName;
+      }
+    }
+    logger.debug(`Using original property name: ${property}`);
+    return property;
+  }
 
   where(property: keyof T | string, operator: FilterOperator, value: any): QueryBuilder<T> {
     const mappedProperty = this.getMappedPropertyName(String(property));
+    logger.debug(`Adding where condition for property: ${mappedProperty}, operator: ${operator}`);
     this.filters.push({
       property: mappedProperty,
       operator,
@@ -59,8 +75,9 @@ export class QueryBuilder<T> {
     relationFilter: (builder: QueryBuilder<R>) => QueryBuilder<R>
   ): QueryBuilder<T> {
     const mappedProperty = this.getMappedPropertyName(String(relationProperty));
-    const relatedDatabaseId = this.relationMappings[this.modelName]?.[String(relationProperty)];
+    logger.debug(`Adding relation filter for property: ${mappedProperty}`);
 
+    const relatedDatabaseId = this.relationMappings[this.modelName]?.[String(relationProperty)];
     if (!relatedDatabaseId) {
       throw new Error(`No database ID mapping found for relation: ${String(relationProperty)}`);
     }
@@ -73,9 +90,8 @@ export class QueryBuilder<T> {
       this.propertyMappings
     );
 
-    const filteredBuilder = relationFilter(subBuilder);
+    relationFilter(subBuilder);
 
-    // The actual query will be executed when execute() is called
     this.filters.push({
       relationProperty: mappedProperty,
       filter: {
@@ -90,12 +106,14 @@ export class QueryBuilder<T> {
 
   include(relationProperty: keyof T | string): QueryBuilder<T> {
     const mappedProperty = this.getMappedPropertyName(String(relationProperty));
+    logger.debug(`Including relation: ${mappedProperty}`);
     this.includedRelations.add(mappedProperty);
     return this;
   }
 
   orderBy(property: keyof T | string, direction: 'ascending' | 'descending' = 'ascending'): QueryBuilder<T> {
     const mappedProperty = this.getMappedPropertyName(String(property));
+    logger.debug(`Adding sort condition for property: ${mappedProperty}, direction: ${direction}`);
     this.sorts.push({
       property: mappedProperty,
       direction
@@ -111,17 +129,6 @@ export class QueryBuilder<T> {
   after(cursor: string): QueryBuilder<T> {
     this.startCursor = cursor;
     return this;
-  }
-
-  getFilters(): (FilterCondition | RelationFilter)[] {
-    return this.filters;
-  }
-
-  private getMappedPropertyName(property: string): string {
-    if (this.propertyMappings[this.modelName]) {
-      return this.propertyMappings[this.modelName][property] || property;
-    }
-    return property;
   }
 
   private buildFilter(condition: FilterCondition | RelationFilter): any {
@@ -196,15 +203,31 @@ export class QueryBuilder<T> {
   }
 
   private getPropertyType(property: string): string {
-    if (property === 'Title' || property === 'Name') return NotionPropertyTypes.Title;
-    if (property.endsWith('At') || property.includes('Created At')) return NotionPropertyTypes.Date;
-    if (property.startsWith('is') || property === 'Is Active') return NotionPropertyTypes.Checkbox;
+    // プロパティ名に基づいてNotionのプロパティタイプを推測
+    const propertyLower = property.toLowerCase();
+    if (propertyLower === 'title' || propertyLower === 'name') {
+      return NotionPropertyTypes.Title;
+    }
+    if (propertyLower.endsWith('at') || propertyLower.includes('date')) {
+      return NotionPropertyTypes.Date;
+    }
+    if (propertyLower.startsWith('is') || propertyLower === 'active') {
+      return NotionPropertyTypes.Checkbox;
+    }
+    if (propertyLower.includes('tags')) {
+      return NotionPropertyTypes.MultiSelect;
+    }
+    if (propertyLower.includes('status')) {
+      return NotionPropertyTypes.Select;
+    }
     return NotionPropertyTypes.RichText;
   }
 
   private buildSortCondition(sort: SortCondition): any {
+    const mappedProperty = this.getMappedPropertyName(sort.property);
+    logger.debug(`Building sort condition for property: ${mappedProperty}, direction: ${sort.direction}`);
     return {
-      property: sort.property,
+      property: mappedProperty,
       direction: sort.direction
     };
   }
@@ -235,7 +258,7 @@ export class QueryBuilder<T> {
         query.start_cursor = this.startCursor;
       }
 
-      logger.info(`Executing query for ${this.modelName}:`, query);
+      logger.debug(`Executing query for ${this.modelName}:`, query);
 
       const response = await this.notion.databases.query(query);
       const results = response.results.map(page => this.mapResponseToModel(page));
@@ -248,7 +271,7 @@ export class QueryBuilder<T> {
     } catch (error: any) {
       logger.error(`Error executing query for ${this.modelName}:`, error);
       if (error.code === 'validation_error') {
-        logger.error('Validation error details:', error.message);
+        logger.error(`Validation error details: ${error.message}`);
       }
       throw error;
     }
@@ -275,7 +298,7 @@ export class QueryBuilder<T> {
   private async getRelationData(id: string): Promise<any> {
     const cached = this.relationCache[id];
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-      logger.info(`Using cached relation data for ID: ${id}`);
+      logger.debug(`Using cached relation data for ID: ${id}`);
       return cached.data;
     }
 
