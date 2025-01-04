@@ -34,6 +34,7 @@ export class QueryBuilder<T> {
   private includedRelations: Set<string> = new Set();
   private relationCache: RelationCache = {};
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5分間キャッシュを保持
+  private isDebugMode: boolean = process.env.DEBUG === 'true';
 
   constructor(
     private notion: Client,
@@ -42,14 +43,18 @@ export class QueryBuilder<T> {
     private relationMappings: Record<string, Record<string, string>> = {},
     private propertyMappings: Record<string, Record<string, string>> = {}
   ) {
-    logger.debug(`Initializing QueryBuilder for ${modelName} with database ID ${databaseId}`);
-    logger.debug('Property mappings:', this.propertyMappings[this.modelName]);
-    logger.debug('Relation mappings:', this.relationMappings[this.modelName]);
+    if (this.isDebugMode) {
+      logger.debug(`クエリビルダーを初期化: ${modelName}, データベースID: ${databaseId}`);
+      logger.debug('プロパティマッピング:', JSON.stringify(this.propertyMappings[this.modelName], null, 2));
+      logger.debug('リレーションマッピング:', JSON.stringify(this.relationMappings[this.modelName], null, 2));
+    }
   }
 
   where(property: keyof T | string, operator: FilterOperator, value: any): QueryBuilder<T> {
     const mappedProperty = this.getMappedPropertyName(String(property));
-    logger.debug(`Adding where condition for property: ${mappedProperty}, operator: ${operator}, value:`, value);
+    if (this.isDebugMode) {
+      logger.debug(`フィルター条件を追加: プロパティ=${mappedProperty}, 演算子=${operator}, 値=${JSON.stringify(value)}`);
+    }
     this.filters.push({
       property: mappedProperty,
       operator,
@@ -63,11 +68,13 @@ export class QueryBuilder<T> {
     relationFilter: (builder: QueryBuilder<R>) => QueryBuilder<R>
   ): QueryBuilder<T> {
     const mappedProperty = this.getMappedPropertyName(String(relationProperty));
-    logger.debug(`Adding relation filter for property: ${mappedProperty}`);
+    if (this.isDebugMode) {
+      logger.debug(`リレーションフィルターを追加: ${mappedProperty}`);
+    }
 
     const relatedDatabaseId = this.relationMappings[this.modelName]?.[String(relationProperty)];
     if (!relatedDatabaseId) {
-      throw new Error(`No database ID mapping found for relation: ${String(relationProperty)}`);
+      throw new Error(`リレーション "${String(relationProperty)}" のデータベースIDが見つかりません`);
     }
 
     const subBuilder = new QueryBuilder<R>(
@@ -82,7 +89,7 @@ export class QueryBuilder<T> {
     const subFilters = builder.getFilters();
 
     if (subFilters.length === 0) {
-      throw new Error('Relation filter must have at least one condition');
+      throw new Error('リレーションフィルターには少なくとも1つの条件が必要です');
     }
 
     const subFilter = subFilters[0];
@@ -98,14 +105,18 @@ export class QueryBuilder<T> {
 
   include(relationProperty: keyof T | string): QueryBuilder<T> {
     const mappedProperty = this.getMappedPropertyName(String(relationProperty));
-    logger.debug(`Including relation: ${mappedProperty}`);
+    if (this.isDebugMode) {
+      logger.debug(`リレーションを含める: ${mappedProperty}`);
+    }
     this.includedRelations.add(mappedProperty);
     return this;
   }
 
   orderBy(property: keyof T | string, direction: 'ascending' | 'descending' = 'ascending'): QueryBuilder<T> {
     const mappedProperty = this.getMappedPropertyName(String(property));
-    logger.debug(`Adding sort condition for property: ${mappedProperty}, direction: ${direction}`);
+    if (this.isDebugMode) {
+      logger.debug(`ソート条件を追加: プロパティ=${mappedProperty}, 方向=${direction}`);
+    }
     this.sorts.push({
       property: mappedProperty,
       direction
@@ -114,11 +125,17 @@ export class QueryBuilder<T> {
   }
 
   limit(size: number): QueryBuilder<T> {
+    if (this.isDebugMode) {
+      logger.debug(`ページサイズを設定: ${size}`);
+    }
     this.pageSize = size;
     return this;
   }
 
   after(cursor: string): QueryBuilder<T> {
+    if (this.isDebugMode) {
+      logger.debug(`開始カーソルを設定: ${cursor}`);
+    }
     this.startCursor = cursor;
     return this;
   }
@@ -132,25 +149,36 @@ export class QueryBuilder<T> {
     if (modelMappings) {
       const mappedName = modelMappings[property];
       if (mappedName) {
-        logger.debug(`Mapped property ${property} to ${mappedName}`);
+        if (this.isDebugMode) {
+          logger.debug(`プロパティマッピング: ${property} => ${mappedName}`);
+        }
         return mappedName;
       }
     }
-    logger.debug(`Using original property name: ${property}`);
+    if (this.isDebugMode) {
+      logger.debug(`プロパティマッピングなし: ${property} をそのまま使用`);
+    }
     return property;
   }
 
   private isRelationProperty(property: string): boolean {
     const propertyLower = property.toLowerCase();
-    return propertyLower === 'domain' || 
-           propertyLower === 'documents' || 
-           propertyLower.includes('relation') ||
-           this.relationMappings[this.modelName]?.[property] !== undefined;
+    const isRelation = propertyLower === 'domain' || 
+                      propertyLower === 'documents' || 
+                      propertyLower.includes('relation') ||
+                      this.relationMappings[this.modelName]?.[property] !== undefined;
+
+    if (this.isDebugMode && isRelation) {
+      logger.debug(`プロパティ "${property}" はリレーションとして検出されました`);
+    }
+    return isRelation;
   }
 
   private buildFilter(condition: FilterCondition | RelationFilter): any {
     if ('relationProperty' in condition) {
-      logger.debug(`Building relation filter for property: ${condition.relationProperty}, value:`, condition.value);
+      if (this.isDebugMode) {
+        logger.debug(`リレーションフィルターを構築: ${condition.relationProperty}, 値:`, condition.value);
+      }
       return {
         property: condition.relationProperty,
         relation: {
@@ -161,9 +189,10 @@ export class QueryBuilder<T> {
 
     const { property, operator, value } = condition;
     const isRelation = this.isRelationProperty(property);
-    logger.debug(`Building filter for property: ${property}, operator: ${operator}, isRelation: ${isRelation}, value:`, value);
+    if (this.isDebugMode) {
+      logger.debug(`フィルターを構築: プロパティ=${property}, 演算子=${operator}, リレーション=${isRelation}, 値:`, value);
+    }
 
-    // リレーションプロパティの特別な処理
     if (isRelation) {
       return {
         property,
@@ -174,76 +203,54 @@ export class QueryBuilder<T> {
     }
 
     const propertyType = this.getPropertyType(property);
-    logger.debug(`Property type determined as: ${propertyType}`);
+    if (this.isDebugMode) {
+      logger.debug(`プロパティタイプ: ${propertyType}`);
+    }
 
+    const filter = {
+      property,
+      [propertyType]: this.getFilterCondition(operator, value)
+    };
+
+    if (this.isDebugMode) {
+      logger.debug('生成されたフィルター:', JSON.stringify(filter, null, 2));
+    }
+
+    return filter;
+  }
+
+  private getFilterCondition(operator: FilterOperator, value: any): any {
     switch (operator) {
       case 'equals':
-        return {
-          property,
-          [propertyType]: {
-            equals: value
-          }
-        };
+        return { equals: value };
       case 'contains':
-        return {
-          property,
-          [propertyType]: {
-            contains: value
-          }
-        };
+        return { contains: value };
       case 'startsWith':
-        return {
-          property,
-          [propertyType]: {
-            starts_with: value
-          }
-        };
+        return { starts_with: value };
       case 'endsWith':
-        return {
-          property,
-          [propertyType]: {
-            ends_with: value
-          }
-        };
+        return { ends_with: value };
       case 'before':
       case 'after':
       case 'on_or_before':
       case 'on_or_after':
-        return {
-          property,
-          date: {
-            [operator]: value
-          }
-        };
+        return { [operator]: value };
       case 'is_empty':
-        return {
-          property,
-          [propertyType]: {
-            is_empty: true
-          }
-        };
+        return { is_empty: true };
       case 'is_not_empty':
-        return {
-          property,
-          [propertyType]: {
-            is_not_empty: true
-          }
-        };
+        return { is_not_empty: true };
       default:
-        logger.warn(`Unsupported operator: ${operator}, using default equals`);
-        return {
-          property,
-          [propertyType]: {
-            equals: value
-          }
-        };
+        logger.warn(`未サポートの演算子: ${operator}, equals を使用します`);
+        return { equals: value };
     }
   }
 
   private getPropertyType(property: string): string {
+    if (this.isDebugMode) {
+      logger.debug(`プロパティタイプを判定: ${property}`);
+    }
+
     const propertyLower = property.toLowerCase();
 
-    // Domain関連のプロパティはリレーション
     if (this.isRelationProperty(property)) {
       return NotionPropertyTypes.Relation;
     }
@@ -265,25 +272,26 @@ export class QueryBuilder<T> {
       return NotionPropertyTypes.Select;
     }
 
-    // デフォルトはRichText
+    if (this.isDebugMode) {
+      logger.debug(`デフォルトのプロパティタイプ(RichText)を使用: ${property}`);
+    }
     return NotionPropertyTypes.RichText;
   }
 
   private buildSortCondition(sort: SortCondition): any {
     const mappedProperty = this.getMappedPropertyName(String(sort.property));
-    logger.debug(`Building sort condition for property: ${mappedProperty}, direction: ${sort.direction}`);
+    if (this.isDebugMode) {
+      logger.debug(`ソート条件を構築: プロパティ=${mappedProperty}, 方向=${sort.direction}`);
+    }
 
-    // Notionの特殊なプロパティ名とシステムプロパティのマッピング
     let finalPropertyName = mappedProperty;
 
-    // システムプロパティの処理
     if (mappedProperty === 'createdTime' || mappedProperty === 'Created At') {
       finalPropertyName = 'created_time';
     } else if (mappedProperty === 'lastEditedTime') {
       finalPropertyName = 'last_edited_time';
     }
 
-    // プロパティ名がNotionのシステムプロパティでない場合は、通常のプロパティとして扱う
     const isSystemProperty = ['created_time', 'last_edited_time'].includes(finalPropertyName);
     const sortCondition = {
       direction: sort.direction
@@ -295,7 +303,9 @@ export class QueryBuilder<T> {
       sortCondition.property = finalPropertyName;
     }
 
-    logger.debug(`Generated sort condition:`, sortCondition);
+    if (this.isDebugMode) {
+      logger.debug('生成されたソート条件:', JSON.stringify(sortCondition, null, 2));
+    }
     return sortCondition;
   }
 
@@ -311,12 +321,10 @@ export class QueryBuilder<T> {
           : {
               and: this.filters.map(filter => this.buildFilter(filter))
             };
-        logger.debug(`Generated filter:`, JSON.stringify(query.filter, null, 2));
       }
 
       if (this.sorts.length > 0) {
         query.sorts = this.sorts.map(sort => this.buildSortCondition(sort));
-        logger.debug(`Generated sorts:`, JSON.stringify(query.sorts, null, 2));
       }
 
       if (this.pageSize) {
@@ -327,13 +335,16 @@ export class QueryBuilder<T> {
         query.start_cursor = this.startCursor;
       }
 
-      logger.debug(`Executing Notion query for ${this.modelName}:`, JSON.stringify(query, null, 2));
+      if (this.isDebugMode) {
+        logger.debug(`クエリを実行: ${this.modelName}`, JSON.stringify(query, null, 2));
+      }
 
       const response = await this.notion.databases.query(query);
-      logger.debug(`Received response with ${response.results.length} results`);
+      if (this.isDebugMode) {
+        logger.debug(`${response.results.length} 件の結果を取得`);
+      }
 
       const results = response.results.map(page => this.mapResponseToModel(page));
-      logger.debug(`Mapped results:`, JSON.stringify(results, null, 2));
 
       if (this.includedRelations.size > 0) {
         await Promise.all(results.map(result => this.loadRelations(result)));
@@ -341,9 +352,9 @@ export class QueryBuilder<T> {
 
       return results;
     } catch (error: any) {
-      logger.error(`Error executing query for ${this.modelName}:`, error);
+      logger.error(`${this.modelName} のクエリ実行中にエラーが発生:`, error);
       if (error.code === 'validation_error') {
-        logger.error(`Validation error details: ${error.message}`);
+        logger.error(`バリデーションエラーの詳細: ${error.message}`);
       }
       throw error;
     }
@@ -370,12 +381,16 @@ export class QueryBuilder<T> {
   private async getRelationData(id: string): Promise<any> {
     const cached = this.relationCache[id];
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-      logger.debug(`Using cached relation data for ID: ${id}`);
+      if (this.isDebugMode) {
+        logger.debug(`キャッシュされたリレーションデータを使用: ${id}`);
+      }
       return cached.data;
     }
 
     try {
-      logger.debug(`Fetching relation data for ID: ${id}`);
+      if (this.isDebugMode) {
+        logger.debug(`リレーションデータを取得: ${id}`);
+      }
       const response = await this.notion.pages.retrieve({ page_id: id });
       const mappedData = this.mapResponseToModel(response);
 
@@ -386,15 +401,17 @@ export class QueryBuilder<T> {
 
       return mappedData;
     } catch (error) {
-      logger.error(`Error retrieving relation data for ID ${id}:`, error);
+      logger.error(`リレーションデータの取得中にエラーが発生 (ID: ${id}):`, error);
       throw error;
     }
   }
 
   private mapResponseToModel(page: any): T {
     const props = page.properties;
-    logger.debug(`Mapping response to model for page ID: ${page.id}`);
-    logger.debug(`Page properties:`, JSON.stringify(props, null, 2));
+    if (this.isDebugMode) {
+      logger.debug(`レスポンスをモデルにマッピング: ${page.id}`);
+      logger.debug('ページのプロパティ:', JSON.stringify(props, null, 2));
+    }
 
     const mapped = {
       id: page.id,
@@ -406,11 +423,17 @@ export class QueryBuilder<T> {
       lastEditedTime: page.last_edited_time
     } as T;
 
-    logger.debug(`Mapped model:`, JSON.stringify(mapped, null, 2));
+    if (this.isDebugMode) {
+      logger.debug('マッピング結果:', JSON.stringify(mapped, null, 2));
+    }
     return mapped;
   }
 
   private mapPropertyValue(property: any): any {
+    if (this.isDebugMode) {
+      logger.debug(`プロパティ値をマッピング:`, property);
+    }
+
     switch (property.type) {
       case NotionPropertyTypes.Title:
         return property.title[0]?.plain_text || '';
@@ -437,7 +460,7 @@ export class QueryBuilder<T> {
       case NotionPropertyTypes.Formula:
         return property.formula?.string || property.formula?.number?.toString() || '';
       default:
-        logger.warn(`Unsupported Notion property type: ${property.type}`);
+        logger.warn(`未サポートのNotionプロパティタイプ: ${property.type}`);
         return '';
     }
   }
