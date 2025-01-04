@@ -1,21 +1,21 @@
 type LogArgs = unknown[];
-type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'success';
+type LogLevel = "debug" | "info" | "warn" | "error" | "success";
 
 const colors = {
-  reset: '\x1b[0m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  magenta: '\x1b[35m'
+  reset: "\x1b[0m",
+  red: "\x1b[31m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  blue: "\x1b[34m",
+  magenta: "\x1b[35m",
 };
 
 const symbols = {
-  debug: '🔍',
-  info: 'ℹ',
-  warn: '⚠',
-  error: '✗',
-  success: '✓'
+  debug: "🔍",
+  info: "ℹ",
+  warn: "⚠",
+  error: "✗",
+  success: "✓",
 };
 
 function getTimestamp(): string {
@@ -29,7 +29,7 @@ function formatMessage(level: LogLevel, message: string): string {
     info: colors.blue,
     warn: colors.yellow,
     error: colors.red,
-    success: colors.green
+    success: colors.green,
   }[level];
 
   return `${color}${symbols[level]}${colors.reset} [${timestamp}] ${color}${message}${colors.reset}`;
@@ -38,29 +38,31 @@ function formatMessage(level: LogLevel, message: string): string {
 export const logger = {
   debug: (message: string, ...args: LogArgs): void => {
     if (process.env.DEBUG) {
-      console.log(formatMessage('debug', message), ...args);
+      console.log(formatMessage("debug", message), ...args);
     }
   },
 
   success: (message: string, ...args: LogArgs): void => {
-    console.log(formatMessage('success', message), ...args);
+    console.log(formatMessage("success", message), ...args);
   },
 
   error: (message: string, error?: unknown): void => {
-    console.error(formatMessage('error', message));
+    console.error(formatMessage("error", message));
     if (error instanceof Error) {
       console.error(`${colors.red}Stack trace:${colors.reset}`);
       console.error(`${colors.red}${error.stack}${colors.reset}`);
     } else if (error) {
-      console.error(`${colors.red}Error details: ${String(error)}${colors.reset}`);
+      console.error(
+        `${colors.red}Error details: ${String(error)}${colors.reset}`
+      );
     }
   },
 
   info: (message: string, ...args: LogArgs): void => {
-    console.log(formatMessage('info', message), ...args);
+    console.log(formatMessage("info", message), ...args);
   },
 
   warn: (message: string, ...args: LogArgs): void => {
-    console.log(formatMessage('warn', message), ...args);
-  }
+    console.log(formatMessage("warn", message), ...args);
+  },
 };

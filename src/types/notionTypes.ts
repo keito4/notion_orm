@@ -1,23 +1,23 @@
 export enum NotionPropertyTypes {
-  Title = 'title',
-  RichText = 'rich_text',
-  Number = 'number',
-  Select = 'select',
-  MultiSelect = 'multi_select',
-  Date = 'date',
-  Checkbox = 'checkbox',
-  URL = 'url',
-  Email = 'email',
-  PhoneNumber = 'phone_number',
-  Files = 'files',
-  People = 'people',
-  Relation = 'relation',
-  Formula = 'formula',
-  Rollup = 'rollup',
-  CreatedTime = 'created_time',
-  CreatedBy = 'created_by',
-  LastEditedTime = 'last_edited_time',
-  LastEditedBy = 'last_edited_by'
+  Title = "title",
+  RichText = "rich_text",
+  Number = "number",
+  Select = "select",
+  MultiSelect = "multi_select",
+  Date = "date",
+  Checkbox = "checkbox",
+  URL = "url",
+  Email = "email",
+  PhoneNumber = "phone_number",
+  Files = "files",
+  People = "people",
+  Relation = "relation",
+  Formula = "formula",
+  Rollup = "rollup",
+  CreatedTime = "created_time",
+  CreatedBy = "created_by",
+  LastEditedTime = "last_edited_time",
+  LastEditedBy = "last_edited_by",
 }
 
 export interface NotionProperty {
@@ -59,7 +59,7 @@ export interface NotionRichTextProperty extends NotionProperty {
 export interface NotionNumberProperty extends NotionProperty {
   type: NotionPropertyTypes.Number;
   number: {
-    format?: 'number' | 'percent' | 'dollar' | 'euro';
+    format?: "number" | "percent" | "dollar" | "euro";
   };
 }
 
