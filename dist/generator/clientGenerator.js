@@ -29,29 +29,6 @@ import { Client } from '@notionhq/client';
 import { ${schema.models.map(m => m.name).join(', ')} } from './${typeFile.replace(/\.ts$/, '')}';
 import { QueryBuilder } from '../query/builder';
 
-interface NotionPropertyValue {
-  id: string;
-  type: string;
-  [key: string]: any;
-}
-
-interface NotionPage {
-  id: string;
-  properties: Record<string, NotionPropertyValue>;
-  created_time: string;
-  last_edited_time: string;
-}
-
-interface NotionUser {
-  id: string;
-  name?: string;
-  avatar_url?: string;
-}
-
-interface NotionRelation {
-  id: string;
-}
-
 export class NotionOrmClient {
   private notion: Client;
 
@@ -61,7 +38,7 @@ export class NotionOrmClient {
 
   ${schema.models.map(model => `
   async get${model.name}(id: string): Promise<${model.name}> {
-    const response = await this.notion.pages.retrieve({ page_id: id }) as NotionPage;
+    const response = await this.notion.pages.retrieve({ page_id: id });
     return this.mapResponseTo${model.name}(response);
   }
 
@@ -69,23 +46,23 @@ export class NotionOrmClient {
     const response = await this.notion.databases.query({
       database_id: "${model.notionDatabaseId}"
     });
-    return response.results.map(page => this.mapResponseTo${model.name}(page as NotionPage));
+    return response.results.map(page => this.mapResponseTo${model.name}(page));
   }
 
   query${model.name}s(): QueryBuilder<${model.name}> {
     return new QueryBuilder<${model.name}>(this.notion, "${model.notionDatabaseId}", "${model.name}");
   }
 
-  private mapResponseTo${model.name}(response: NotionPage): ${model.name} {
-    const props = response.properties;
+  private mapResponseTo${model.name}(page: any): ${model.name} {
+    const props = page.properties;
     return {
-      id: response.id,
+      id: page.id,
       ${model.fields.map(field => {
         const propAccess = `props['${field.name}']`;
         return `${JSON.stringify(field.name)}: ${mapNotionResponseToProperty(field.type, propAccess)}`;
     }).join(',\n      ')},
-      createdTime: response.created_time,
-      lastEditedTime: response.last_edited_time
+      createdTime: page.created_time,
+      lastEditedTime: page.last_edited_time
     };
   }
   `).join('\n')}
@@ -103,19 +80,19 @@ function mapNotionResponseToProperty(type, propertyPath) {
         case notionTypes_1.NotionPropertyTypes.Select:
             return `${propertyPath}?.select?.name || ""`;
         case notionTypes_1.NotionPropertyTypes.MultiSelect:
-            return `${propertyPath}?.multi_select?.map((item: { name: string }) => item.name) || []`;
+            return `${propertyPath}?.multi_select?.map((item: any) => item.name) || []`;
         case notionTypes_1.NotionPropertyTypes.Date:
             return `${propertyPath}?.date?.start || null`;
         case notionTypes_1.NotionPropertyTypes.Checkbox:
             return `${propertyPath}?.checkbox || false`;
         case notionTypes_1.NotionPropertyTypes.People:
-            return `${propertyPath}?.people?.map((user: NotionUser) => ({
+            return `${propertyPath}?.people?.map((user: any) => ({
         id: user.id,
         name: user.name || "",
         avatar_url: user.avatar_url
       })) || []`;
         case notionTypes_1.NotionPropertyTypes.Relation:
-            return `${propertyPath}?.relation?.map((item: NotionRelation) => ({ id: item.id })) || []`;
+            return `${propertyPath}?.relation?.map((item: any) => ({ id: item.id })) || []`;
         case notionTypes_1.NotionPropertyTypes.Formula:
             return `${propertyPath}?.formula?.string || ${propertyPath}?.formula?.number?.toString() || ""`;
         default:
