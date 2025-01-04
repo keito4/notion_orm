@@ -1,36 +1,35 @@
-import { writeFileSync } from 'fs';
-import { Schema } from '../types';
-import { logger } from '../utils/logger';
-import { NotionPropertyTypes } from '../types/notionTypes';
-import { resolve, dirname } from 'path';
-import { mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync } from "fs";
+import { resolve, dirname } from "path";
+import { Schema } from "../types";
+import { logger } from "../utils/logger";
+import { NotionPropertyTypes } from "../types/notionTypes";
 
 export async function generateClient(schema: Schema): Promise<void> {
   try {
-    const outputDir = schema.output?.directory || './generated';
-    const clientFile = schema.output?.clientFile || 'client.ts';
+    const outputDir = schema.output?.directory || "./generated";
+    const clientFile = schema.output?.clientFile || "client.ts";
     const outputPath = resolve(outputDir, clientFile);
-
-    // 出力ディレクトリの作成
     mkdirSync(dirname(outputPath), { recursive: true });
-
     const clientCode = generateClientCode(schema);
     writeFileSync(outputPath, clientCode);
-
     logger.info(`Generated client code in ${outputPath}`);
   } catch (error) {
-    logger.error('Error generating client:', error);
+    logger.error("Error generating client:", error);
     throw error;
   }
 }
 
 function generateClientCode(schema: Schema): string {
-  const typeFile = schema.output?.typeDefinitionFile || 'types';
+  const typeFile = schema.output?.typeDefinitionFile || "types";
+  logger.info(typeFile);
+  logger.info(JSON.stringify(schema));
 
   return `
 import { Client } from '@notionhq/client';
-import { ${schema.models.map(m => m.name).join(', ')} } from './${typeFile.replace(/\.ts$/, '')}';
-import { QueryBuilder } from '../query/builder';
+import { ${schema.models
+    .map((m) => m.name)
+    .join(", ")} } from './${typeFile.replace(/\.ts$/, "")}';
+import { QueryBuilder } from '../src/query/builder';
 
 export class NotionOrmClient {
   private notion: Client;
@@ -38,8 +37,9 @@ export class NotionOrmClient {
   constructor(apiKey: string) {
     this.notion = new Client({ auth: apiKey });
   }
-
-  ${schema.models.map(model => `
+  ${schema.models
+    .map(
+      (model) => `
   async get${model.name}(id: string): Promise<${model.name}> {
     const response = await this.notion.pages.retrieve({ page_id: id });
     return this.mapResponseTo${model.name}(response);
@@ -53,27 +53,39 @@ export class NotionOrmClient {
   }
 
   query${model.name}s(): QueryBuilder<${model.name}> {
-    return new QueryBuilder<${model.name}>(this.notion, "${model.notionDatabaseId}", "${model.name}");
+    return new QueryBuilder<${model.name}>(this.notion, "${
+        model.notionDatabaseId
+      }", "${model.name}");
   }
 
   private mapResponseTo${model.name}(page: any): ${model.name} {
     const props = page.properties;
     return {
       id: page.id,
-      ${model.fields.map(field => {
-        const propAccess = `props['${field.name}']`;
-        return `${JSON.stringify(field.name)}: ${mapNotionResponseToProperty(field.type, propAccess)}`;
-      }).join(',\n      ')},
+      ${model.fields
+        .map((field) => {
+          const propAccess = `props['${field.notionName}']`;
+          return `${JSON.stringify(field.name)}: ${mapNotionResponseToProperty(
+            field.type,
+            propAccess
+          )}`;
+        })
+        .join(",\n      ")},
       createdTime: page.created_time,
       lastEditedTime: page.last_edited_time
     };
   }
-  `).join('\n')}
+`
+    )
+    .join("\n")}
 }
 `;
 }
 
-function mapNotionResponseToProperty(type: string, propertyPath: string): string {
+function mapNotionResponseToProperty(
+  type: string,
+  propertyPath: string
+): string {
   switch (type) {
     case NotionPropertyTypes.Title:
       return `${propertyPath}?.title?.[0]?.plain_text || ""`;
@@ -100,7 +112,9 @@ function mapNotionResponseToProperty(type: string, propertyPath: string): string
     case NotionPropertyTypes.Formula:
       return `${propertyPath}?.formula?.string || ${propertyPath}?.formula?.number?.toString() || ""`;
     default:
-      logger.warn(`Unsupported Notion property type: ${type}, using default string conversion`);
+      logger.warn(
+        `Unsupported Notion property type: ${type}, using default string conversion`
+      );
       return `String(${propertyPath} || "")`;
   }
 }

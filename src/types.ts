@@ -20,5 +20,5 @@ export interface Field {
   type: string;
   optional: boolean;
   attributes: string[];
-  notionName?: string;  // Added notionName property for Notion field mapping
+  notionName?: string;
 }
