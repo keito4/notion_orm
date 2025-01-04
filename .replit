@@ -23,6 +23,22 @@ args = "Build CLI"
 task = "workflow.run"
 args = "Test Runner"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Test Query Builder"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Test Relations"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Test Domain-Document Relations"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Test UUID Features"
+
 [[workflows.workflow]]
 name = "CLI Tool"
 author = "agent"
@@ -35,7 +51,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "ts-node src/index.ts generate"
+args = "ts-node src/cli.ts generate"
 
 [[workflows.workflow]]
 name = "Build CLI"
@@ -63,7 +79,63 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm test"
+args = "jest --verbose tests/notion-connection.test.ts"
+
+[[workflows.workflow]]
+name = "Test Query Builder"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "ts-node examples/test.ts"
+
+[[workflows.workflow]]
+name = "Test Relations"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "ts-node examples/task-relation-test.ts"
+
+[[workflows.workflow]]
+name = "Test Domain-Document Relations"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "DEBUG=true ts-node examples/domain-document-test.ts"
+
+[[workflows.workflow]]
+name = "Test UUID Features"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "DEBUG=true ts-node examples/uuid-test.ts"
 
 [deployment]
-run = ["sh", "-c", "ts-node src/index.ts generate"]
+run = ["sh", "-c", "ts-node src/cli.ts generate"]
