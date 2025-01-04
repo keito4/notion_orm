@@ -18,11 +18,36 @@ export class NotionClient {
     if (!apiKey) {
       throw new Error('NOTION_API_KEY environment variable is required');
     }
-    this.client = new Client({ auth: apiKey });
+
+    logger.debug('Initializing Notion client...');
+    this.client = new Client({ 
+      auth: apiKey,
+      notionVersion: '2022-06-28'
+    });
+  }
+
+  async validateConnection(): Promise<boolean> {
+    try {
+      logger.debug('Testing Notion API connection...');
+      // Try to retrieve a small amount of users to test the connection
+      await this.client.users.list({});
+      logger.success('Successfully connected to Notion API');
+      return true;
+    } catch (error: any) {
+      if (error.code === 'unauthorized') {
+        logger.error('Failed to connect to Notion API: Invalid API key');
+      } else if (error.code === 'service_unavailable') {
+        logger.error('Failed to connect to Notion API: Service unavailable');
+      } else {
+        logger.error('Failed to connect to Notion API:', error);
+      }
+      return false;
+    }
   }
 
   async validateSchema(schema: Schema): Promise<void> {
     try {
+      logger.debug('Starting schema validation...');
       for (const model of schema.models) {
         if (!model.notionDatabaseId) {
           throw new Error(`No Notion database ID specified for model ${model.name}`);
@@ -31,7 +56,6 @@ export class NotionClient {
         logger.info(`Validating schema for model ${model.name} with database ID ${model.notionDatabaseId}`);
 
         try {
-          // データベースの存在確認
           await this.validateDatabaseExists(model.notionDatabaseId, model.name);
           const database = await this.getDatabaseSchema(model.notionDatabaseId);
           await this.validateDatabaseSchema(model, database);
@@ -44,23 +68,22 @@ export class NotionClient {
         }
       }
     } catch (error) {
-      if (error instanceof Error) {
-        logger.error(`Schema validation failed: ${error.message}`);
-        if (error.stack) {
-          logger.debug('Error stack trace:', error.stack);
-        }
-      }
+      logger.error('Schema validation failed:', error);
       throw error;
     }
   }
 
   private async validateDatabaseExists(databaseId: string, modelName: string): Promise<void> {
     try {
+      logger.debug(`Checking database existence for ${modelName} (ID: ${databaseId})...`);
       await this.client.databases.retrieve({
         database_id: databaseId
       });
       logger.info(`Successfully verified database existence for ${modelName} (ID: ${databaseId})`);
     } catch (error: any) {
+      if (error.code === 'unauthorized') {
+        throw new Error(`Unauthorized access to database ${databaseId} for model ${modelName}. Check your API key permissions.`);
+      }
       if (error.status === 404) {
         throw new Error(`Database not found: ${databaseId} for model ${modelName}`);
       }
@@ -70,11 +93,10 @@ export class NotionClient {
 
   private async validateDatabaseSchema(model: Model, database: NotionDatabase): Promise<void> {
     const notionProperties = database.properties;
-    logger.info(`Validating database schema for ${model.name}:`, notionProperties);
+    logger.debug(`Validating database schema for ${model.name}:`, notionProperties);
 
-    // Notionデータベースの構造に基づいて、モデルのフィールドを更新
     model.fields = Object.entries(notionProperties).map(([key, property]) => {
-      const isOptional = property.type !== NotionPropertyTypes.Title; // タイトル以外は任意
+      const isOptional = property.type !== NotionPropertyTypes.Title;
       return {
         name: property.name,
         type: property.type,
@@ -83,11 +105,10 @@ export class NotionClient {
       };
     });
 
-    // プロパティの詳細情報をログ出力
     Object.entries(notionProperties).forEach(([key, property]) => {
       if (property.type === NotionPropertyTypes.Select || property.type === NotionPropertyTypes.MultiSelect) {
         const options = this.getPropertyOptions(property);
-        logger.info(`Property ${property.name} has options:`, options.map(opt => opt.name));
+        logger.debug(`Property ${property.name} has options:`, options.map(opt => opt.name));
       }
     });
 
@@ -96,11 +117,11 @@ export class NotionClient {
 
   async getDatabaseSchema(databaseId: string): Promise<NotionDatabase> {
     try {
+      logger.debug(`Retrieving database schema for ${databaseId}...`);
       const response = await this.client.databases.retrieve({
         database_id: databaseId
       });
 
-      // NotionのAPIレスポンスを我々の型定義に変換
       const database: NotionDatabase = {
         id: response.id,
         properties: Object.entries(response.properties).reduce((acc, [key, prop]) => {
@@ -109,13 +130,10 @@ export class NotionClient {
         }, {} as Record<string, NotionDatabaseProperty>)
       };
 
-      logger.info(`Retrieved database schema for ${databaseId}:`, database.properties);
+      logger.debug(`Retrieved database schema for ${databaseId}:`, database.properties);
       return database;
     } catch (error: any) {
-      logger.error(`Failed to retrieve database schema for ${databaseId}: ${error.message}`);
-      if (error.stack) {
-        logger.debug('Error stack trace:', error.stack);
-      }
+      logger.error(`Failed to retrieve database schema for ${databaseId}:`, error);
       throw error;
     }
   }
