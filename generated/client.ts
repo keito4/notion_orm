@@ -29,22 +29,31 @@ export class NotionOrmClient {
       }
     };
 
-    // Define property mappings for correct field name mapping
+    // プロパティマッピングを更新
     this.propertyMappings = {
       Document: {
-        Title: 'Title',
-        Content: 'Content',
-        Status: 'Status',
-        Domain: 'Domain',
-        Tags: 'Tags',
-        'Created At': 'Created At',
-        Author: 'Author'
+        Title: 'タイトル',  // 日本語のプロパティ名に対応
+        Content: 'コンテンツ',
+        Status: 'ステータス',
+        Domain: 'ドメイン',
+        Tags: 'タグ',
+        'Created At': '作成日時',
+        Author: '作成者'
       },
       Domain: {
-        Name: 'Name',
-        Description: 'Description',
-        IsActive: 'Is Active',
-        Documents: 'Documents'
+        Name: '名前',  // 日本語のプロパティ名に対応
+        Description: '説明',
+        IsActive: 'アクティブ',
+        Documents: 'ドキュメント'
+      },
+      Task: {
+        Name: '名前',
+        completed: '完了',
+        emphasized: '注力',
+        'Sub-item': 'サブアイテム',
+        date: '日付',
+        manager: '責任者',
+        archived: 'アーカイブ'
       }
     };
 
@@ -65,6 +74,89 @@ export class NotionOrmClient {
     } catch (error) {
       logger.error('Error validating Notion connection:', error);
       throw error;
+    }
+  }
+
+  // UUIDに関連する新しいメソッド
+
+  // UUIDからドメインを取得
+  async getDomainById(uuid: string): Promise<Domain | null> {
+    try {
+      logger.debug(`Fetching domain with UUID: ${uuid}`);
+      const response = await this.notion.pages.retrieve({ page_id: uuid });
+      return this.mapResponseToDomain(response);
+    } catch (error) {
+      logger.error(`Error fetching domain with UUID ${uuid}:`, error);
+      return null;
+    }
+  }
+
+  // 名前からドメインのUUIDを取得
+  async getDomainUuidByName(name: string): Promise<string | null> {
+    try {
+      logger.debug(`Finding domain UUID for name: ${name}`);
+      const response = await this.notion.databases.query({
+        database_id: "f6e300b8598e42208a2c163444655842",
+        filter: {
+          property: "名前",  // 日本語のプロパティ名を使用
+          title: {
+            equals: name
+          }
+        },
+        page_size: 1
+      });
+
+      if (response.results.length === 0) {
+        logger.warn(`No domain found with name "${name}"`);
+        return null;
+      }
+
+      const uuid = response.results[0].id;
+      logger.debug(`Found UUID for domain "${name}": ${uuid}`);
+      return uuid;
+    } catch (error) {
+      logger.error(`Error finding UUID for domain "${name}":`, error);
+      return null;
+    }
+  }
+
+  // 同様にドキュメントに関するUUIDメソッドを追加
+  async getDocumentById(uuid: string): Promise<Document | null> {
+    try {
+      logger.debug(`Fetching document with UUID: ${uuid}`);
+      const response = await this.notion.pages.retrieve({ page_id: uuid });
+      return this.mapResponseToDocument(response);
+    } catch (error) {
+      logger.error(`Error fetching document with UUID ${uuid}:`, error);
+      return null;
+    }
+  }
+
+  async getDocumentUuidByTitle(title: string): Promise<string | null> {
+    try {
+      logger.debug(`Finding document UUID for title: ${title}`);
+      const response = await this.notion.databases.query({
+        database_id: "13f70a52207f80d58f64cdc627123f87",
+        filter: {
+          property: "タイトル",  // 日本語のプロパティ名を使用
+          title: {
+            equals: title
+          }
+        },
+        page_size: 1
+      });
+
+      if (response.results.length === 0) {
+        logger.warn(`No document found with title "${title}"`);
+        return null;
+      }
+
+      const uuid = response.results[0].id;
+      logger.debug(`Found UUID for document "${title}": ${uuid}`);
+      return uuid;
+    } catch (error) {
+      logger.error(`Error finding UUID for document "${title}":`, error);
+      return null;
     }
   }
 
@@ -108,13 +200,13 @@ export class NotionOrmClient {
 
       const mappedDoc = {
         id: page.id,
-        Title: props['Title']?.title?.[0]?.plain_text || "",
-        Content: props['Content']?.rich_text?.[0]?.plain_text || "",
-        Status: props['Status']?.select?.name || "",
-        Domain: props['Domain']?.relation?.map((item: any) => ({ id: item.id })) || [],
-        Tags: props['Tags']?.multi_select?.map((item: any) => item.name) || [],
-        'Created At': props['Created At']?.date?.start || null,
-        Author: props['Author']?.people?.map((user: any) => ({
+        Title: props['タイトル']?.title?.[0]?.plain_text || "",
+        Content: props['コンテンツ']?.rich_text?.[0]?.plain_text || "",
+        Status: props['ステータス']?.select?.name || "",
+        Domain: props['ドメイン']?.relation?.map((item: any) => ({ id: item.id })) || [],
+        Tags: props['タグ']?.multi_select?.map((item: any) => item.name) || [],
+        'Created At': props['作成日時']?.date?.start || null,
+        Author: props['作成者']?.people?.map((user: any) => ({
           id: user.id,
           name: user.name || "",
           avatar_url: user.avatar_url
@@ -171,10 +263,10 @@ export class NotionOrmClient {
 
       const mappedDomain = {
         id: page.id,
-        Name: props['Name']?.title?.[0]?.plain_text || "",
-        Description: props['Description']?.rich_text?.[0]?.plain_text || "",
-        IsActive: props['Is Active']?.checkbox || false,
-        Documents: props['Documents']?.relation?.map((item: any) => ({ id: item.id })) || [],
+        Name: props['名前']?.title?.[0]?.plain_text || "",
+        Description: props['説明']?.rich_text?.[0]?.plain_text || "",
+        IsActive: props['アクティブ']?.checkbox || false,
+        Documents: props['ドキュメント']?.relation?.map((item: any) => ({ id: item.id })) || [],
         createdTime: page.created_time,
         lastEditedTime: page.last_edited_time
       };
@@ -252,10 +344,10 @@ export class NotionOrmClient {
     const props = page.properties;
     return {
       id: page.id,
-      Name: props['Name']?.title?.[0]?.plain_text || "",
+      Name: props['名前']?.title?.[0]?.plain_text || "",
       completed: props['完了']?.checkbox || false,
       emphasized: props['注力']?.checkbox || false,
-      subItem: props['Sub-item']?.relation?.map((item: any) => ({ id: item.id })) || [],
+      subItem: props['サブアイテム']?.relation?.map((item: any) => ({ id: item.id })) || [],
       similarPage: props['似てるページ']?.relation?.map((item: any) => ({ id: item.id })) || [],
       date: props['日付']?.date?.start || null,
       manager: props['責任者']?.people?.map((user: any) => ({
