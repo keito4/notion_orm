@@ -40,68 +40,64 @@ export class QueryBuilder<T> {
     private notion: Client,
     private databaseId: string,
     private modelName: string,
-    private relationMappings: Record<string, string> = {}
+    private relationMappings: Record<string, Record<string, string>> = {},
+    private propertyMappings: Record<string, Record<string, string>> = {}
   ) {}
 
   where(property: keyof T | string, operator: FilterOperator, value: any): QueryBuilder<T> {
+    const mappedProperty = this.getMappedPropertyName(String(property));
     this.filters.push({
-      property: String(property),
+      property: mappedProperty,
       operator,
       value
     });
     return this;
   }
 
-  whereRelation<R extends { id: string }>(
+  whereRelation<R>(
     relationProperty: keyof T | string,
-    relationFilter: (builder: QueryBuilder<R>) => QueryBuilder<R> | Promise<QueryBuilder<R>>
-  ): Promise<QueryBuilder<T>> {
-    return (async () => {
-      try {
-        const relatedDatabaseId = this.relationMappings[String(relationProperty)];
-        if (!relatedDatabaseId) {
-          throw new Error(`No database ID mapping found for relation: ${String(relationProperty)}`);
-        }
+    relationFilter: (builder: QueryBuilder<R>) => QueryBuilder<R>
+  ): QueryBuilder<T> {
+    const mappedProperty = this.getMappedPropertyName(String(relationProperty));
+    const relatedDatabaseId = this.relationMappings[this.modelName]?.[String(relationProperty)];
 
-        const subBuilder = new QueryBuilder<R>(
-          this.notion,
-          relatedDatabaseId,
-          String(relationProperty)
-        );
+    if (!relatedDatabaseId) {
+      throw new Error(`No database ID mapping found for relation: ${String(relationProperty)}`);
+    }
 
-        const filteredBuilder = await Promise.resolve(relationFilter(subBuilder));
-        const relatedObjects = await filteredBuilder.execute();
+    const subBuilder = new QueryBuilder<R>(
+      this.notion,
+      relatedDatabaseId,
+      String(relationProperty),
+      this.relationMappings,
+      this.propertyMappings
+    );
 
-        if (relatedObjects.length === 0) {
-          logger.warn(`No related objects found for relation ${String(relationProperty)}`);
-          return this;
-        }
+    const filteredBuilder = relationFilter(subBuilder);
 
-        this.filters.push({
-          relationProperty: String(relationProperty),
-          filter: {
-            property: 'id',
-            operator: 'equals',
-            value: relatedObjects[0].id
-          }
-        });
-
-        return this;
-      } catch (error) {
-        logger.error(`Error in whereRelation for ${String(relationProperty)}:`, error);
-        throw error;
+    // The actual query will be executed when execute() is called
+    this.filters.push({
+      relationProperty: mappedProperty,
+      filter: {
+        property: 'id',
+        operator: 'is_not_empty',
+        value: true
       }
-    })();
+    });
+
+    return this;
   }
 
   include(relationProperty: keyof T | string): QueryBuilder<T> {
-    this.includedRelations.add(String(relationProperty));
+    const mappedProperty = this.getMappedPropertyName(String(relationProperty));
+    this.includedRelations.add(mappedProperty);
     return this;
   }
 
   orderBy(property: keyof T | string, direction: 'ascending' | 'descending' = 'ascending'): QueryBuilder<T> {
+    const mappedProperty = this.getMappedPropertyName(String(property));
     this.sorts.push({
-      property: String(property),
+      property: mappedProperty,
       direction
     });
     return this;
@@ -121,12 +117,19 @@ export class QueryBuilder<T> {
     return this.filters;
   }
 
+  private getMappedPropertyName(property: string): string {
+    if (this.propertyMappings[this.modelName]) {
+      return this.propertyMappings[this.modelName][property] || property;
+    }
+    return property;
+  }
+
   private buildFilter(condition: FilterCondition | RelationFilter): any {
     if ('relationProperty' in condition) {
       return {
         property: condition.relationProperty,
         relation: {
-          contains: condition.filter.value
+          is_not_empty: true
         }
       };
     }
@@ -194,9 +197,16 @@ export class QueryBuilder<T> {
 
   private getPropertyType(property: string): string {
     if (property === 'Title' || property === 'Name') return NotionPropertyTypes.Title;
-    if (property.endsWith('At')) return NotionPropertyTypes.Date;
-    if (property.startsWith('is') || property === 'IsActive') return NotionPropertyTypes.Checkbox;
+    if (property.endsWith('At') || property.includes('Created At')) return NotionPropertyTypes.Date;
+    if (property.startsWith('is') || property === 'Is Active') return NotionPropertyTypes.Checkbox;
     return NotionPropertyTypes.RichText;
+  }
+
+  private buildSortCondition(sort: SortCondition): any {
+    return {
+      property: sort.property,
+      direction: sort.direction
+    };
   }
 
   async execute(): Promise<T[]> {
@@ -214,10 +224,7 @@ export class QueryBuilder<T> {
       }
 
       if (this.sorts.length > 0) {
-        query.sorts = this.sorts.map(({ property, direction }) => ({
-          property,
-          direction
-        }));
+        query.sorts = this.sorts.map(sort => this.buildSortCondition(sort));
       }
 
       if (this.pageSize) {
@@ -238,8 +245,11 @@ export class QueryBuilder<T> {
       }
 
       return results;
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error executing query for ${this.modelName}:`, error);
+      if (error.code === 'validation_error') {
+        logger.error('Validation error details:', error.message);
+      }
       throw error;
     }
   }
@@ -269,15 +279,20 @@ export class QueryBuilder<T> {
       return cached.data;
     }
 
-    const response = await this.notion.pages.retrieve({ page_id: id });
-    const mappedData = this.mapResponseToModel(response);
+    try {
+      const response = await this.notion.pages.retrieve({ page_id: id });
+      const mappedData = this.mapResponseToModel(response);
 
-    this.relationCache[id] = {
-      data: mappedData,
-      timestamp: Date.now()
-    };
+      this.relationCache[id] = {
+        data: mappedData,
+        timestamp: Date.now()
+      };
 
-    return mappedData;
+      return mappedData;
+    } catch (error) {
+      logger.error(`Error retrieving relation data for ID ${id}:`, error);
+      throw error;
+    }
   }
 
   private mapResponseToModel(page: any): T {

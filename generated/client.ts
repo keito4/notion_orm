@@ -5,9 +5,12 @@ import { QueryBuilder } from '../src/query/builder';
 export class NotionOrmClient {
   private notion: Client;
   private relationMappings: Record<string, Record<string, string>>;
+  private propertyMappings: Record<string, Record<string, string>>;
 
   constructor(apiKey: string) {
     this.notion = new Client({ auth: apiKey });
+
+    // Define nested relation mappings structure
     this.relationMappings = {
       Document: {
         Domain: '***REMOVED***'  // Domain database ID
@@ -19,6 +22,40 @@ export class NotionOrmClient {
         'Sub-item': '***REMOVED***',  // Task database ID (self-reference)
         'Parent item': '***REMOVED***',  // Task database ID (self-reference)
         Action: '***REMOVED***'  // Task database ID (self-reference)
+      }
+    };
+
+    // Define property mappings for correct field name mapping
+    this.propertyMappings = {
+      Document: {
+        Title: 'Title',
+        Content: 'Content',
+        Status: 'Status',
+        Domain: 'Domain',
+        Tags: 'Tags',
+        CreatedAt: 'Created At',
+        Author: 'Author'
+      },
+      Domain: {
+        Name: 'Name',
+        Description: 'Description',
+        IsActive: 'Is Active',
+        Documents: 'Documents'
+      },
+      Task: {
+        Name: 'Name',
+        completed: '完了',
+        emphasized: '注力',
+        'Sub-item': 'Sub-item',
+        similarPage: '似てるページ',
+        date: '日付',
+        manager: '責任者',
+        archived: 'アーカイブ',
+        'OYKOT Timeline': 'OYKOT Timeline',
+        Action: 'Action',
+        objectiveProgress: 'Objective進行度',
+        'Parent item': 'Parent item',
+        actionProgress: 'Action進行度'
       }
     };
   }
@@ -41,7 +78,8 @@ export class NotionOrmClient {
       this.notion,
       "***REMOVED***",
       "Task",
-      this.relationMappings.Task
+      this.relationMappings,
+      this.propertyMappings
     );
   }
 
@@ -89,7 +127,8 @@ export class NotionOrmClient {
       this.notion,
       "***REMOVED***",
       "Document",
-      this.relationMappings.Document
+      this.relationMappings,
+      this.propertyMappings
     );
   }
 
@@ -131,7 +170,8 @@ export class NotionOrmClient {
       this.notion,
       "***REMOVED***",
       "Domain",
-      this.relationMappings.Domain
+      this.relationMappings,
+      this.propertyMappings
     );
   }
 

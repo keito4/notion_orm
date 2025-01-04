@@ -117,7 +117,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "ts-node examples/domain-document-test.ts"
+args = "DEBUG=true ts-node examples/domain-document-test.ts"
 
 [deployment]
 run = ["sh", "-c", "ts-node src/index.ts generate"]

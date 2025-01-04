@@ -1,7 +1,6 @@
 import { NotionOrmClient } from '../generated/client';
 import { logger } from '../src/utils/logger';
 import { Document, Domain } from '../generated/types';
-import { QueryBuilder } from '../src/query/builder';
 
 async function main() {
   try {
@@ -9,12 +8,12 @@ async function main() {
 
     // Test 1: Query documents by domain name
     logger.info('Querying documents by domain name...');
-    const techDocs = await (await client.queryDocuments()
-      .whereRelation('Domain', async (domain: QueryBuilder<Domain>) => 
+    const techDocs = await client.queryDocuments()
+      .whereRelation('Domain', domain => 
         domain.where('Name', 'equals', '技術ブログ')
-      ))
+      )
       .include('Domain')
-      .orderBy('CreatedAt', 'descending')
+      .orderBy('createdTime', 'descending')
       .execute();
 
     logger.info(`Found ${techDocs.length} documents in 技術ブログ domain`);
@@ -74,7 +73,6 @@ async function main() {
     logger.error('エラーが発生しました:', error);
     if (error instanceof Error) {
       logger.error('Error details:', error.message);
-      logger.error('Stack trace:', error.stack);
     }
   }
 }
