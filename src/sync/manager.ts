@@ -1,23 +1,23 @@
-import { Schema, Model, Field } from '../types';
-import { NotionClient } from '../notion/client';
-import { logger } from '../utils/logger';
-import { NotionPropertyTypes } from '../types/notionTypes';
+import { Schema, Model, Field } from "../types";
+import { NotionClient } from "../notion/client";
+import { logger } from "../utils/logger";
+import { NotionPropertyTypes } from "../types/notionTypes";
 
 export class SyncManager {
   constructor(private notionClient: NotionClient) {}
 
   async validateAndSync(schema: Schema): Promise<void> {
     try {
-      logger.info('Starting database validation and sync...');
+      logger.info("Starting database validation and sync...");
       await this.notionClient.validateSchema(schema);
 
       for (const model of schema.models) {
         await this.syncModel(model);
       }
 
-      logger.success('Database validation and sync completed successfully');
+      logger.success("Database validation and sync completed successfully");
     } catch (error) {
-      logger.error('Error during database validation and sync:', error);
+      logger.error("Error during database validation and sync:", error);
       throw error;
     }
   }
@@ -25,21 +25,32 @@ export class SyncManager {
   private async syncModel(model: Model): Promise<void> {
     try {
       logger.info(`Syncing model: ${model.name}`);
-      const database = await this.notionClient.getDatabaseSchema(model.notionDatabaseId);
+      const database = await this.notionClient.getDatabaseSchema(
+        model.notionDatabaseId
+      );
 
       // データベースのプロパティとモデルのフィールドを比較
-      const missingFields = this.findMissingFields(model.fields, database.properties);
+      const missingFields = this.findMissingFields(
+        model.fields,
+        database.properties
+      );
       if (missingFields.length > 0) {
-        logger.warn(`Missing fields in Notion database for model ${model.name}:`, missingFields);
-        // 将来的な機能: データベースの自動更新
-        // await this.updateDatabaseSchema(model.notionDatabaseId, missingFields);
+        logger.warn(
+          `Missing fields in Notion database for model ${model.name}:`,
+          missingFields
+        );
       }
 
       // フィールドの型の検証
-      const typeErrors = this.validateFieldTypes(model.fields, database.properties);
+      const typeErrors = this.validateFieldTypes(
+        model.fields,
+        database.properties
+      );
       if (typeErrors.length > 0) {
         logger.error(`Type mismatches in model ${model.name}:`, typeErrors);
-        throw new Error(`Invalid field types in model ${model.name}: ${typeErrors.join(', ')}`);
+        throw new Error(
+          `Invalid field types in model ${model.name}: ${typeErrors.join(", ")}`
+        );
       }
 
       logger.success(`Successfully synced model: ${model.name}`);
@@ -49,7 +60,10 @@ export class SyncManager {
     }
   }
 
-  private findMissingFields(modelFields: Field[], databaseProperties: Record<string, any>): string[] {
+  private findMissingFields(
+    modelFields: Field[],
+    databaseProperties: Record<string, any>
+  ): string[] {
     const missingFields: string[] = [];
     const databaseFieldNames = new Set(Object.keys(databaseProperties));
 
@@ -87,54 +101,84 @@ export class SyncManager {
   }
 
   private mapModelTypeToNotionType(field: Field): NotionPropertyTypes {
-    // スキーマの属性を確認
-    const hasAttribute = (attr: string) => field.attributes.some(a => a.startsWith(attr));
+    // スキーマの属性を確認（完全一致に変更）
+    const hasAttribute = (attr: string) =>
+      field.attributes.some((a) => a === attr || a.startsWith(`${attr}(`));
 
     // タイトルフィールドの判定
-    if (hasAttribute('title')) {
+    if (hasAttribute("title")) {
       return NotionPropertyTypes.Title;
     }
 
     // その他の属性による判定
-    if (hasAttribute('checkbox')) {
+    if (hasAttribute("checkbox")) {
       return NotionPropertyTypes.Checkbox;
     }
-    if (hasAttribute('date')) {
+    if (hasAttribute("date")) {
       return NotionPropertyTypes.Date;
     }
-    if (hasAttribute('people')) {
+    if (hasAttribute("people")) {
       return NotionPropertyTypes.People;
     }
-    if (hasAttribute('select')) {
+    if (hasAttribute("select")) {
       return NotionPropertyTypes.Select;
     }
-    if (hasAttribute('multiSelect')) {
+    if (hasAttribute("multiSelect")) {
       return NotionPropertyTypes.MultiSelect;
     }
-    if (hasAttribute('relation')) {
+    if (hasAttribute("relation")) {
       return NotionPropertyTypes.Relation;
     }
-    if (hasAttribute('formula')) {
+    if (hasAttribute("formula")) {
       return NotionPropertyTypes.Formula;
     }
-    if (hasAttribute('richText')) {
+    if (hasAttribute("richText")) {
       return NotionPropertyTypes.RichText;
+    }
+    if (hasAttribute("created_time")) {
+      return NotionPropertyTypes.CreatedTime;
+    }
+    if (hasAttribute("created_by")) {
+      return NotionPropertyTypes.CreatedBy;
     }
 
     // 型による判定（属性がない場合）
     switch (field.type.toLowerCase()) {
-      case 'string':
+      case "string":
         return NotionPropertyTypes.RichText;
-      case 'boolean':
+      case "boolean":
+      case "checkbox":
         return NotionPropertyTypes.Checkbox;
-      case 'datetime':
+      case "created_time":
+        return NotionPropertyTypes.CreatedTime;
+      case "datetime":
+      case "date":
         return NotionPropertyTypes.Date;
-      case 'json':
+      case "people":
         return NotionPropertyTypes.People;
-      case 'string[]':
+      case "created_by":
+        return NotionPropertyTypes.CreatedBy;
+      case "multi_select":
         return NotionPropertyTypes.MultiSelect;
+      case "relation":
+        return NotionPropertyTypes.Relation;
+      case "formula":
+        return NotionPropertyTypes.Formula;
+      case "title":
+        return NotionPropertyTypes.Title;
       default:
-        logger.warn(`Unknown field type: ${field.type}, defaulting to rich_text`);
+        if (
+          field.type.includes("relation") ||
+          field.type.includes("Relation")
+        ) {
+          return NotionPropertyTypes.Relation;
+        }
+        if (field.type.includes("formula") || field.type.includes("Formula")) {
+          return NotionPropertyTypes.Formula;
+        }
+        logger.warn(
+          `Unknown field type: ${field.type}, defaulting to rich_text`
+        );
         return NotionPropertyTypes.RichText;
     }
   }
