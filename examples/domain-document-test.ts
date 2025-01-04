@@ -6,14 +6,24 @@ async function main() {
   try {
     const client = new NotionOrmClient(process.env.NOTION_API_KEY!);
 
-    // Test 1: Query documents by domain name
-    logger.info('Querying documents by domain name...');
+    // まず技術ブログドメインを名前で検索
+    logger.info('技術ブログドメインを検索中...');
+    const techDomain = await client.findDomainByName('技術ブログ');
+
+    if (!techDomain) {
+      logger.warn('技術ブログドメインが見つかりませんでした');
+      return;
+    }
+
+    const techDomainId = techDomain.id;
+    logger.info(`技術ブログドメインのID: ${techDomainId}`);
+
+    // 取得したドメインIDを使用してドキュメントを検索
+    logger.info('技術ブログドメインのドキュメントを検索中...');
     const techDocs = await client.queryDocuments()
-      .whereRelation('Domain', domain => 
-        domain.where('Name', 'equals', '技術ブログ')
-      )
+      .where('Domain', 'contains', techDomainId)
       .include('Domain')
-      .orderBy('Created At', 'descending')  // Changed from createdTime to Created At
+      .orderBy('Created At', 'descending')
       .execute();
 
     logger.info(`Found ${techDocs.length} documents in 技術ブログ domain`);
@@ -21,7 +31,7 @@ async function main() {
       logger.info('---Document---');
       logger.info(`Title: ${doc.Title}`);
       logger.info(`Status: ${doc.Status}`);
-      logger.info(`Created At: ${doc['Created At']}`);  // Changed from doc.CreatedAt to bracket notation
+      logger.info(`Created At: ${doc['Created At']}`);
       if (doc.Domain && doc.Domain.length > 0) {
         doc.Domain.forEach(domain => {
           logger.info(`Domain ID: ${domain.id}`);

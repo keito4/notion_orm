@@ -10,8 +10,12 @@ import {
 } from '../types/notionTypes';
 import { logger } from '../utils/logger';
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1秒
+
 export class NotionClient {
   private client: Client;
+  private isInitialized: boolean = false;
 
   constructor() {
     const apiKey = process.env.NOTION_API_KEY;
@@ -26,11 +30,31 @@ export class NotionClient {
     });
   }
 
+  private async retryOperation<T>(operation: () => Promise<T>): Promise<T> {
+    let lastError: Error | null = null;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        logger.debug(`Attempt ${attempt}/${MAX_RETRIES}`);
+        return await operation();
+      } catch (error: any) {
+        lastError = error;
+        logger.warn(`Attempt ${attempt} failed:`, error);
+        if (attempt < MAX_RETRIES) {
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * attempt));
+        }
+      }
+    }
+    throw lastError;
+  }
+
   async validateConnection(): Promise<boolean> {
     try {
       logger.debug('Testing Notion API connection...');
-      await this.client.users.list({ page_size: 1 });
+      await this.retryOperation(async () => {
+        await this.client.users.list({ page_size: 1 });
+      });
       logger.success('Successfully connected to Notion API');
+      this.isInitialized = true;
       return true;
     } catch (error: any) {
       if (error.code === 'unauthorized') {
@@ -47,9 +71,11 @@ export class NotionClient {
   async validateSchema(schema: Schema): Promise<void> {
     try {
       logger.debug('Starting schema validation...');
-      const isConnected = await this.validateConnection();
-      if (!isConnected) {
-        throw new Error('Failed to validate schema: Could not connect to Notion API');
+      if (!this.isInitialized) {
+        const isConnected = await this.validateConnection();
+        if (!isConnected) {
+          throw new Error('Failed to validate schema: Could not connect to Notion API');
+        }
       }
 
       for (const model of schema.models) {
@@ -80,8 +106,10 @@ export class NotionClient {
   private async validateDatabaseExists(databaseId: string, modelName: string): Promise<void> {
     try {
       logger.debug(`Checking database existence for ${modelName} (ID: ${databaseId})...`);
-      await this.client.databases.retrieve({
-        database_id: databaseId
+      await this.retryOperation(async () => {
+        await this.client.databases.retrieve({
+          database_id: databaseId
+        });
       });
       logger.info(`Successfully verified database existence for ${modelName} (ID: ${databaseId})`);
     } catch (error: any) {
@@ -92,6 +120,31 @@ export class NotionClient {
         throw new Error(`Database not found: ${databaseId} for model ${modelName}`);
       }
       throw new Error(`Failed to verify database ${databaseId} for model ${modelName}: ${error.message}`);
+    }
+  }
+
+  async getDatabaseSchema(databaseId: string): Promise<NotionDatabase> {
+    try {
+      logger.debug(`Retrieving database schema for ${databaseId}...`);
+      const response = await this.retryOperation(async () => {
+        return await this.client.databases.retrieve({
+          database_id: databaseId
+        });
+      });
+
+      const database: NotionDatabase = {
+        id: response.id,
+        properties: Object.entries(response.properties).reduce((acc, [key, prop]) => {
+          acc[key] = this.convertToNotionProperty(prop);
+          return acc;
+        }, {} as Record<string, NotionDatabaseProperty>)
+      };
+
+      logger.debug(`Retrieved database schema, properties:`, Object.keys(database.properties));
+      return database;
+    } catch (error: any) {
+      logger.error(`Failed to retrieve database schema for ${databaseId}:`, error);
+      throw error;
     }
   }
 
@@ -121,29 +174,6 @@ export class NotionClient {
     });
 
     logger.success(`Schema validation completed for ${model.name}`);
-  }
-
-  async getDatabaseSchema(databaseId: string): Promise<NotionDatabase> {
-    try {
-      logger.debug(`Retrieving database schema for ${databaseId}...`);
-      const response = await this.client.databases.retrieve({
-        database_id: databaseId
-      });
-
-      const database: NotionDatabase = {
-        id: response.id,
-        properties: Object.entries(response.properties).reduce((acc, [key, prop]) => {
-          acc[key] = this.convertToNotionProperty(prop);
-          return acc;
-        }, {} as Record<string, NotionDatabaseProperty>)
-      };
-
-      logger.debug(`Retrieved database schema, properties:`, Object.keys(database.properties));
-      return database;
-    } catch (error: any) {
-      logger.error(`Failed to retrieve database schema for ${databaseId}:`, error);
-      throw error;
-    }
   }
 
   private getPropertyOptions(property: NotionDatabaseProperty): NotionSelectOption[] {

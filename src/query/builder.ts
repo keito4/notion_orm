@@ -44,6 +44,7 @@ export class QueryBuilder<T> {
   ) {
     logger.debug(`Initializing QueryBuilder for ${modelName} with database ID ${databaseId}`);
     logger.debug('Property mappings:', this.propertyMappings[this.modelName]);
+    logger.debug('Relation mappings:', this.relationMappings[this.modelName]);
   }
 
   where(property: keyof T | string, operator: FilterOperator, value: any): QueryBuilder<T> {
@@ -139,20 +140,41 @@ export class QueryBuilder<T> {
     return property;
   }
 
+  private isRelationProperty(property: string): boolean {
+    const propertyLower = property.toLowerCase();
+    return propertyLower === 'domain' || 
+           propertyLower === 'documents' || 
+           propertyLower.includes('relation') ||
+           this.relationMappings[this.modelName]?.[property] !== undefined;
+  }
+
   private buildFilter(condition: FilterCondition | RelationFilter): any {
     if ('relationProperty' in condition) {
-      logger.debug(`Building relation filter for property: ${condition.relationProperty}`);
+      logger.debug(`Building relation filter for property: ${condition.relationProperty}, value:`, condition.value);
       return {
         property: condition.relationProperty,
         relation: {
-          contains: condition.value
+          contains: condition.value.toString()
         }
       };
     }
 
     const { property, operator, value } = condition;
+    const isRelation = this.isRelationProperty(property);
+    logger.debug(`Building filter for property: ${property}, operator: ${operator}, isRelation: ${isRelation}, value:`, value);
+
+    // リレーションプロパティの特別な処理
+    if (isRelation) {
+      return {
+        property,
+        relation: {
+          contains: value.toString()
+        }
+      };
+    }
+
     const propertyType = this.getPropertyType(property);
-    logger.debug(`Building filter for property: ${property}, operator: ${operator}, type: ${propertyType}, value:`, value);
+    logger.debug(`Property type determined as: ${propertyType}`);
 
     switch (operator) {
       case 'equals':
@@ -219,8 +241,14 @@ export class QueryBuilder<T> {
   }
 
   private getPropertyType(property: string): string {
-    // プロパティ名に基づいてNotionのプロパティタイプを推測
     const propertyLower = property.toLowerCase();
+
+    // Domain関連のプロパティはリレーション
+    if (this.isRelationProperty(property)) {
+      return NotionPropertyTypes.Relation;
+    }
+
+    // 標準的なプロパティタイプのマッピング
     if (propertyLower === 'title' || propertyLower === 'name') {
       return NotionPropertyTypes.Title;
     }
@@ -236,6 +264,8 @@ export class QueryBuilder<T> {
     if (propertyLower.includes('status')) {
       return NotionPropertyTypes.Select;
     }
+
+    // デフォルトはRichText
     return NotionPropertyTypes.RichText;
   }
 
