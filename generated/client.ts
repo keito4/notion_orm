@@ -1,12 +1,26 @@
 import { Client } from '@notionhq/client';
 import { Task, Document, Domain } from './types';
-import { QueryBuilder } from '../query/builder';
+import { QueryBuilder } from '../src/query/builder';
 
 export class NotionOrmClient {
   private notion: Client;
+  private relationMappings: Record<string, Record<string, string>>;
 
   constructor(apiKey: string) {
     this.notion = new Client({ auth: apiKey });
+    this.relationMappings = {
+      Document: {
+        Domain: '***REMOVED***'  // Domain database ID
+      },
+      Domain: {
+        Documents: '***REMOVED***'  // Document database ID
+      },
+      Task: {
+        'Sub-item': '***REMOVED***',  // Task database ID (self-reference)
+        'Parent item': '***REMOVED***',  // Task database ID (self-reference)
+        Action: '***REMOVED***'  // Task database ID (self-reference)
+      }
+    };
   }
 
   // Task related methods
@@ -23,7 +37,12 @@ export class NotionOrmClient {
   }
 
   queryTasks(): QueryBuilder<Task> {
-    return new QueryBuilder<Task>(this.notion, "***REMOVED***", "Task");
+    return new QueryBuilder<Task>(
+      this.notion,
+      "***REMOVED***",
+      "Task",
+      this.relationMappings.Task
+    );
   }
 
   private mapResponseToTask(page: any): Task {
@@ -66,7 +85,12 @@ export class NotionOrmClient {
   }
 
   queryDocuments(): QueryBuilder<Document> {
-    return new QueryBuilder<Document>(this.notion, "***REMOVED***", "Document");
+    return new QueryBuilder<Document>(
+      this.notion,
+      "***REMOVED***",
+      "Document",
+      this.relationMappings.Document
+    );
   }
 
   private mapResponseToDocument(page: any): Document {
@@ -103,7 +127,12 @@ export class NotionOrmClient {
   }
 
   queryDomains(): QueryBuilder<Domain> {
-    return new QueryBuilder<Domain>(this.notion, "***REMOVED***", "Domain");
+    return new QueryBuilder<Domain>(
+      this.notion,
+      "***REMOVED***",
+      "Domain",
+      this.relationMappings.Domain
+    );
   }
 
   private mapResponseToDomain(page: any): Domain {

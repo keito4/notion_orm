@@ -9,12 +9,12 @@ async function main() {
 
     // Test 1: Query documents by domain name
     logger.info('Querying documents by domain name...');
-    const techDocs = await client.queryDocuments()
-      .whereRelation('Domain', (domain: QueryBuilder<Domain>) => 
+    const techDocs = await (await client.queryDocuments()
+      .whereRelation('Domain', async (domain: QueryBuilder<Domain>) => 
         domain.where('Name', 'equals', '技術ブログ')
-      )
+      ))
       .include('Domain')
-      .orderBy('CreatedAt', 'desc')
+      .orderBy('CreatedAt', 'descending')
       .execute();
 
     logger.info(`Found ${techDocs.length} documents in 技術ブログ domain`);
