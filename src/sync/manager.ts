@@ -101,16 +101,12 @@ export class SyncManager {
   }
 
   private mapModelTypeToNotionType(field: Field): NotionPropertyTypes {
-    // スキーマの属性を確認（完全一致に変更）
     const hasAttribute = (attr: string) =>
       field.attributes.some((a) => a === attr || a.startsWith(`${attr}(`));
 
-    // タイトルフィールドの判定
     if (hasAttribute("title")) {
       return NotionPropertyTypes.Title;
     }
-
-    // その他の属性による判定
     if (hasAttribute("checkbox")) {
       return NotionPropertyTypes.Checkbox;
     }
@@ -142,7 +138,6 @@ export class SyncManager {
       return NotionPropertyTypes.CreatedBy;
     }
 
-    // 型による判定（属性がない場合）
     switch (field.type.toLowerCase()) {
       case "string":
         return NotionPropertyTypes.RichText;
