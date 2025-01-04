@@ -10,9 +10,8 @@ export interface FilterCondition {
   value: any;
 }
 
-export interface RelationFilter {
+export interface RelationFilter extends FilterCondition {
   relationProperty: string;
-  filter: FilterCondition;
 }
 
 export interface SortCondition {
@@ -44,24 +43,12 @@ export class QueryBuilder<T> {
     private propertyMappings: Record<string, Record<string, string>> = {}
   ) {
     logger.debug(`Initializing QueryBuilder for ${modelName} with database ID ${databaseId}`);
-  }
-
-  private getMappedPropertyName(property: string): string {
-    const modelMappings = this.propertyMappings[this.modelName];
-    if (modelMappings) {
-      const mappedName = modelMappings[property];
-      if (mappedName) {
-        logger.debug(`Mapped property ${property} to ${mappedName}`);
-        return mappedName;
-      }
-    }
-    logger.debug(`Using original property name: ${property}`);
-    return property;
+    logger.debug('Property mappings:', this.propertyMappings[this.modelName]);
   }
 
   where(property: keyof T | string, operator: FilterOperator, value: any): QueryBuilder<T> {
     const mappedProperty = this.getMappedPropertyName(String(property));
-    logger.debug(`Adding where condition for property: ${mappedProperty}, operator: ${operator}`);
+    logger.debug(`Adding where condition for property: ${mappedProperty}, operator: ${operator}, value:`, value);
     this.filters.push({
       property: mappedProperty,
       operator,
@@ -90,15 +77,19 @@ export class QueryBuilder<T> {
       this.propertyMappings
     );
 
-    relationFilter(subBuilder);
+    const builder = relationFilter(subBuilder);
+    const subFilters = builder.getFilters();
 
+    if (subFilters.length === 0) {
+      throw new Error('Relation filter must have at least one condition');
+    }
+
+    const subFilter = subFilters[0];
     this.filters.push({
-      relationProperty: mappedProperty,
-      filter: {
-        property: 'id',
-        operator: 'is_not_empty',
-        value: true
-      }
+      property: mappedProperty,
+      operator: subFilter.operator,
+      value: subFilter.value,
+      relationProperty: mappedProperty
     });
 
     return this;
@@ -131,18 +122,37 @@ export class QueryBuilder<T> {
     return this;
   }
 
+  getFilters(): (FilterCondition | RelationFilter)[] {
+    return this.filters;
+  }
+
+  private getMappedPropertyName(property: string): string {
+    const modelMappings = this.propertyMappings[this.modelName];
+    if (modelMappings) {
+      const mappedName = modelMappings[property];
+      if (mappedName) {
+        logger.debug(`Mapped property ${property} to ${mappedName}`);
+        return mappedName;
+      }
+    }
+    logger.debug(`Using original property name: ${property}`);
+    return property;
+  }
+
   private buildFilter(condition: FilterCondition | RelationFilter): any {
     if ('relationProperty' in condition) {
+      logger.debug(`Building relation filter for property: ${condition.relationProperty}`);
       return {
         property: condition.relationProperty,
         relation: {
-          is_not_empty: true
+          contains: condition.value
         }
       };
     }
 
     const { property, operator, value } = condition;
     const propertyType = this.getPropertyType(property);
+    logger.debug(`Building filter for property: ${property}, operator: ${operator}, type: ${propertyType}, value:`, value);
 
     switch (operator) {
       case 'equals':
@@ -198,7 +208,13 @@ export class QueryBuilder<T> {
           }
         };
       default:
-        throw new Error(`Unsupported operator: ${operator}`);
+        logger.warn(`Unsupported operator: ${operator}, using default equals`);
+        return {
+          property,
+          [propertyType]: {
+            equals: value
+          }
+        };
     }
   }
 
@@ -224,12 +240,33 @@ export class QueryBuilder<T> {
   }
 
   private buildSortCondition(sort: SortCondition): any {
-    const mappedProperty = this.getMappedPropertyName(sort.property);
+    const mappedProperty = this.getMappedPropertyName(String(sort.property));
     logger.debug(`Building sort condition for property: ${mappedProperty}, direction: ${sort.direction}`);
-    return {
-      property: mappedProperty,
+
+    // Notionの特殊なプロパティ名とシステムプロパティのマッピング
+    let finalPropertyName = mappedProperty;
+
+    // システムプロパティの処理
+    if (mappedProperty === 'createdTime' || mappedProperty === 'Created At') {
+      finalPropertyName = 'created_time';
+    } else if (mappedProperty === 'lastEditedTime') {
+      finalPropertyName = 'last_edited_time';
+    }
+
+    // プロパティ名がNotionのシステムプロパティでない場合は、通常のプロパティとして扱う
+    const isSystemProperty = ['created_time', 'last_edited_time'].includes(finalPropertyName);
+    const sortCondition = {
       direction: sort.direction
-    };
+    } as any;
+
+    if (isSystemProperty) {
+      sortCondition.timestamp = finalPropertyName;
+    } else {
+      sortCondition.property = finalPropertyName;
+    }
+
+    logger.debug(`Generated sort condition:`, sortCondition);
+    return sortCondition;
   }
 
   async execute(): Promise<T[]> {
@@ -244,10 +281,12 @@ export class QueryBuilder<T> {
           : {
               and: this.filters.map(filter => this.buildFilter(filter))
             };
+        logger.debug(`Generated filter:`, JSON.stringify(query.filter, null, 2));
       }
 
       if (this.sorts.length > 0) {
         query.sorts = this.sorts.map(sort => this.buildSortCondition(sort));
+        logger.debug(`Generated sorts:`, JSON.stringify(query.sorts, null, 2));
       }
 
       if (this.pageSize) {
@@ -258,10 +297,13 @@ export class QueryBuilder<T> {
         query.start_cursor = this.startCursor;
       }
 
-      logger.debug(`Executing query for ${this.modelName}:`, query);
+      logger.debug(`Executing Notion query for ${this.modelName}:`, JSON.stringify(query, null, 2));
 
       const response = await this.notion.databases.query(query);
+      logger.debug(`Received response with ${response.results.length} results`);
+
       const results = response.results.map(page => this.mapResponseToModel(page));
+      logger.debug(`Mapped results:`, JSON.stringify(results, null, 2));
 
       if (this.includedRelations.size > 0) {
         await Promise.all(results.map(result => this.loadRelations(result)));
@@ -303,6 +345,7 @@ export class QueryBuilder<T> {
     }
 
     try {
+      logger.debug(`Fetching relation data for ID: ${id}`);
       const response = await this.notion.pages.retrieve({ page_id: id });
       const mappedData = this.mapResponseToModel(response);
 
@@ -320,7 +363,10 @@ export class QueryBuilder<T> {
 
   private mapResponseToModel(page: any): T {
     const props = page.properties;
-    return {
+    logger.debug(`Mapping response to model for page ID: ${page.id}`);
+    logger.debug(`Page properties:`, JSON.stringify(props, null, 2));
+
+    const mapped = {
       id: page.id,
       ...Object.entries(props).reduce((acc: any, [key, value]: [string, any]) => {
         acc[key] = this.mapPropertyValue(value);
@@ -329,6 +375,9 @@ export class QueryBuilder<T> {
       createdTime: page.created_time,
       lastEditedTime: page.last_edited_time
     } as T;
+
+    logger.debug(`Mapped model:`, JSON.stringify(mapped, null, 2));
+    return mapped;
   }
 
   private mapPropertyValue(property: any): any {
