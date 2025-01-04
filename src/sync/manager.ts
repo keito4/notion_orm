@@ -74,7 +74,7 @@ export class SyncManager {
       const databaseProperty = databaseProperties[notionName];
 
       if (databaseProperty) {
-        const expectedType = this.mapModelTypeToNotionType(field.type);
+        const expectedType = this.mapModelTypeToNotionType(field);
         if (expectedType !== databaseProperty.type) {
           typeErrors.push(
             `${notionName}: expected ${expectedType}, got ${databaseProperty.type}`
@@ -86,8 +86,43 @@ export class SyncManager {
     return typeErrors;
   }
 
-  private mapModelTypeToNotionType(modelType: string): NotionPropertyTypes {
-    switch (modelType.toLowerCase()) {
+  private mapModelTypeToNotionType(field: Field): NotionPropertyTypes {
+    // スキーマの属性を確認
+    const hasAttribute = (attr: string) => field.attributes.some(a => a.startsWith(attr));
+
+    // タイトルフィールドの判定
+    if (hasAttribute('title')) {
+      return NotionPropertyTypes.Title;
+    }
+
+    // その他の属性による判定
+    if (hasAttribute('checkbox')) {
+      return NotionPropertyTypes.Checkbox;
+    }
+    if (hasAttribute('date')) {
+      return NotionPropertyTypes.Date;
+    }
+    if (hasAttribute('people')) {
+      return NotionPropertyTypes.People;
+    }
+    if (hasAttribute('select')) {
+      return NotionPropertyTypes.Select;
+    }
+    if (hasAttribute('multiSelect')) {
+      return NotionPropertyTypes.MultiSelect;
+    }
+    if (hasAttribute('relation')) {
+      return NotionPropertyTypes.Relation;
+    }
+    if (hasAttribute('formula')) {
+      return NotionPropertyTypes.Formula;
+    }
+    if (hasAttribute('richText')) {
+      return NotionPropertyTypes.RichText;
+    }
+
+    // 型による判定（属性がない場合）
+    switch (field.type.toLowerCase()) {
       case 'string':
         return NotionPropertyTypes.RichText;
       case 'boolean':
@@ -98,16 +133,8 @@ export class SyncManager {
         return NotionPropertyTypes.People;
       case 'string[]':
         return NotionPropertyTypes.MultiSelect;
-      case 'relation':
-        return NotionPropertyTypes.Relation;
-      case 'formula':
-        return NotionPropertyTypes.Formula;
-      case 'title':
-        return NotionPropertyTypes.Title;
-      case 'select':
-        return NotionPropertyTypes.Select;
       default:
-        logger.warn(`Unknown model type: ${modelType}, defaulting to rich_text`);
+        logger.warn(`Unknown field type: ${field.type}, defaulting to rich_text`);
         return NotionPropertyTypes.RichText;
     }
   }

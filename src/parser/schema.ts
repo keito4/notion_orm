@@ -1,5 +1,6 @@
 import { Schema, Model, Field } from '../types';
 import { logger } from '../utils/logger';
+import { NotionPropertyTypes } from '../types/notionTypes';
 
 interface PrismaModel {
   name: string;
@@ -18,6 +19,15 @@ interface PrismaField {
 export class SchemaParser {
   private static readonly DATABASE_ATTRIBUTE = 'notionDatabase';
   private static readonly MAP_ATTRIBUTE = 'map';
+  private static readonly TITLE_ATTRIBUTE = 'title';
+  private static readonly CHECKBOX_ATTRIBUTE = 'checkbox';
+  private static readonly DATE_ATTRIBUTE = 'date';
+  private static readonly PEOPLE_ATTRIBUTE = 'people';
+  private static readonly SELECT_ATTRIBUTE = 'select';
+  private static readonly MULTI_SELECT_ATTRIBUTE = 'multiSelect';
+  private static readonly RELATION_ATTRIBUTE = 'relation';
+  private static readonly FORMULA_ATTRIBUTE = 'formula';
+  private static readonly RICH_TEXT_ATTRIBUTE = 'richText';
 
   static parse(schemaContent: string): Schema {
     try {
@@ -38,7 +48,7 @@ export class SchemaParser {
     while ((match = modelRegex.exec(content)) !== null) {
       const [_, name, databaseId, fieldsContent] = match;
       const fields = this.parseFields(fieldsContent.trim());
-      
+
       models.push({
         name,
         fields,
@@ -80,13 +90,13 @@ export class SchemaParser {
       if (attrName === this.MAP_ATTRIBUTE && attrValue) {
         notionMapping = attrValue;
       }
-      attributes.push(attrName + (attrValue ? `("${attrValue}")` : ''));
+      attributes.push(attrValue ? `${attrName}("${attrValue}")` : attrName);
     }
 
     // フィールドの作成
     const field: Field = {
       name,
-      type: this.mapPrismaTypeToNotionType(type),
+      type: this.mapPrismaTypeToNotionType(type, attributes),
       optional,
       attributes
     };
@@ -98,20 +108,53 @@ export class SchemaParser {
     return field;
   }
 
-  private static mapPrismaTypeToNotionType(prismaType: string): string {
-    switch (prismaType.toLowerCase()) {
+  private static mapPrismaTypeToNotionType(type: string, attributes: string[]): string {
+    // 属性ベースのマッピング
+    const hasAttribute = (attr: string) => attributes.some(a => a.startsWith(attr));
+
+    if (hasAttribute(this.TITLE_ATTRIBUTE)) {
+      return NotionPropertyTypes.Title;
+    }
+    if (hasAttribute(this.CHECKBOX_ATTRIBUTE)) {
+      return NotionPropertyTypes.Checkbox;
+    }
+    if (hasAttribute(this.DATE_ATTRIBUTE)) {
+      return NotionPropertyTypes.Date;
+    }
+    if (hasAttribute(this.PEOPLE_ATTRIBUTE)) {
+      return NotionPropertyTypes.People;
+    }
+    if (hasAttribute(this.SELECT_ATTRIBUTE)) {
+      return NotionPropertyTypes.Select;
+    }
+    if (hasAttribute(this.MULTI_SELECT_ATTRIBUTE)) {
+      return NotionPropertyTypes.MultiSelect;
+    }
+    if (hasAttribute(this.RELATION_ATTRIBUTE)) {
+      return NotionPropertyTypes.Relation;
+    }
+    if (hasAttribute(this.FORMULA_ATTRIBUTE)) {
+      return NotionPropertyTypes.Formula;
+    }
+    if (hasAttribute(this.RICH_TEXT_ATTRIBUTE)) {
+      return NotionPropertyTypes.RichText;
+    }
+
+    // 型ベースのデフォルトマッピング
+    switch (type.toLowerCase()) {
       case 'string':
-        return 'rich_text';
+        return NotionPropertyTypes.RichText;
       case 'boolean':
-        return 'checkbox';
+        return NotionPropertyTypes.Checkbox;
       case 'datetime':
-        return 'date';
+        return NotionPropertyTypes.Date;
       case 'json':
-        return 'people';
+        return NotionPropertyTypes.People;
       case 'string[]':
-        return 'multi_select';
+        return NotionPropertyTypes.MultiSelect;
       default:
-        return prismaType.toLowerCase();
+        logger.warn(`Unknown Prisma type: ${type}, defaulting to rich_text`);
+        return NotionPropertyTypes.RichText;
     }
   }
 }

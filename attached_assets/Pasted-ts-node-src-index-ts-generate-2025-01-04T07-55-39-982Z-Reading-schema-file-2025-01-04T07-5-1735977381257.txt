@@ -1,0 +1,37 @@
+ts-node src/index.ts generate
+ℹ [2025-01-04T07:55:39.982Z] Reading schema file...
+ℹ [2025-01-04T07:55:39.984Z] Parsing schema...
+ℹ [2025-01-04T07:55:39.984Z] Initializing Notion client...
+ℹ [2025-01-04T07:55:39.984Z] Validating and syncing schema with Notion...
+ℹ [2025-01-04T07:55:39.984Z] Starting database validation and sync...
+(node:66536) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+✓ [2025-01-04T07:55:40.568Z] Successfully connected to Notion API
+ℹ [2025-01-04T07:55:40.568Z] Validating schema for model Task with database ID aac810fcb3414dbb9c46ce485bc6449b
+ℹ [2025-01-04T07:55:40.785Z] Successfully verified database existence for Task (ID: aac810fcb3414dbb9c46ce485bc6449b)
+✓ [2025-01-04T07:55:41.110Z] Schema validation completed for Task
+✓ [2025-01-04T07:55:41.110Z] Validated schema for model Task
+ℹ [2025-01-04T07:55:41.110Z] Validating schema for model Document with database ID 13f70a52207f80d58f64cdc627123f87
+ℹ [2025-01-04T07:55:41.748Z] Successfully verified database existence for Document (ID: 13f70a52207f80d58f64cdc627123f87)
+✓ [2025-01-04T07:55:42.037Z] Schema validation completed for Document
+✓ [2025-01-04T07:55:42.037Z] Validated schema for model Document
+ℹ [2025-01-04T07:55:42.037Z] Validating schema for model Domain with database ID f6e300b8598e42208a2c163444655842
+ℹ [2025-01-04T07:55:44.186Z] Successfully verified database existence for Domain (ID: f6e300b8598e42208a2c163444655842)
+✓ [2025-01-04T07:55:44.457Z] Schema validation completed for Domain
+✓ [2025-01-04T07:55:44.457Z] Validated schema for model Domain
+ℹ [2025-01-04T07:55:44.457Z] Syncing model: Task
+⚠ [2025-01-04T07:55:44.671Z] Unknown model type: checkbox, defaulting to rich_text
+⚠ [2025-01-04T07:55:44.671Z] Unknown model type: checkbox, defaulting to rich_text
+⚠ [2025-01-04T07:55:44.671Z] Unknown model type: date, defaulting to rich_text
+⚠ [2025-01-04T07:55:44.671Z] Unknown model type: people, defaulting to rich_text
+⚠ [2025-01-04T07:55:44.671Z] Unknown model type: checkbox, defaulting to rich_text
+✗ [2025-01-04T07:55:44.671Z] Type mismatches in model Task:
+Error details: 完了: expected rich_text, got checkbox,注力: expected rich_text, got checkbox,日付: expected rich_text, got date,責任者: expected rich_text, got people,アーカイブ: expected rich_text, got checkbox
+✗ [2025-01-04T07:55:44.671Z] Error syncing model Task:
+Stack trace:
+Error: Invalid field types in model Task: 完了: expected rich_text, got checkbox, 注力: expected rich_text, got checkbox, 日付: expected rich_text, got date, 責任者: expected rich_text, got people, アーカイブ: expected rich_text, got checkbox
+    at SyncManager.syncModel (/Users/keito/develop/github.com/keito4/notion_orm/src/sync/manager.ts:42:15)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async SyncManager.validateAndSync (/Users/keito/develop/github.com/keito4/notion_orm/src/sync/manager.ts:15:9)
+    at async generateTypes (/Users/keito/develop/github.com/keito4/notion_orm/src/cli.ts:26:5)
+    at async Command.<anonymous> (/Users/keito/develop/github.com/keito4/notion_orm/src/index.ts:16:7)
