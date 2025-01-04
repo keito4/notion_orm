@@ -5,8 +5,8 @@ generator client {
   client   = "notionClient.ts"
 }
 
-model Task @notionDatabase("aac810fcb3414dbb9c46ce485bc6449b") {
-  Name              String    @title @map("Name")
+model Objective @notionDatabase("aac810fcb3414dbb9c46ce485bc6449b") {
+  name              String    @title @map("Name")
   completed         Boolean?  @checkbox @map("完了")
   emphasized        Boolean?  @checkbox @map("注力")
   subItem           String[]  @relation @map("Sub-item")
@@ -19,4 +19,19 @@ model Task @notionDatabase("aac810fcb3414dbb9c46ce485bc6449b") {
   objectiveProgress String?   @formula @map("Objective進行度")
   parentItem        String[]  @relation @map("Parent item")
   actionProgress    String?   @formula @map("Action進行度")
+}
+
+model Document @notionDatabase("13f70a52207f80d58f64cdc627123f87") {
+  title       String    @title @map("Title")
+  content     String?   @richText @map("Content")
+  status      String    @select @map("Status")
+  domain      Domain[]  @relation @map("Domain")
+  tags        String[]  @multiSelect @map("Tags")
+}
+
+model Domain @notionDatabase("f6e300b8598e42208a2c163444655842") {
+  name        String     @title @map("Name")
+  description String?    @richText @map("Description")
+  isActive    Boolean    @checkbox @map("Is Active")
+  documents   Document[] @relation @map("Documents")
 }

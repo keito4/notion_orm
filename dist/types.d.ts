@@ -1,5 +1,11 @@
 export interface Schema {
     models: Model[];
+    output?: OutputConfig;
+}
+export interface OutputConfig {
+    directory?: string;
+    typeDefinitionFile?: string;
+    clientFile?: string;
 }
 export interface Model {
     name: string;
@@ -11,4 +17,5 @@ export interface Field {
     type: string;
     optional: boolean;
     attributes: string[];
+    notionName?: string;
 }
