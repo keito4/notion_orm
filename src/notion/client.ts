@@ -29,8 +29,7 @@ export class NotionClient {
   async validateConnection(): Promise<boolean> {
     try {
       logger.debug('Testing Notion API connection...');
-      // Try to retrieve a small amount of users to test the connection
-      await this.client.users.list({});
+      await this.client.users.list({ page_size: 1 });
       logger.success('Successfully connected to Notion API');
       return true;
     } catch (error: any) {
@@ -48,6 +47,11 @@ export class NotionClient {
   async validateSchema(schema: Schema): Promise<void> {
     try {
       logger.debug('Starting schema validation...');
+      const isConnected = await this.validateConnection();
+      if (!isConnected) {
+        throw new Error('Failed to validate schema: Could not connect to Notion API');
+      }
+
       for (const model of schema.models) {
         if (!model.notionDatabaseId) {
           throw new Error(`No Notion database ID specified for model ${model.name}`);
@@ -95,6 +99,10 @@ export class NotionClient {
     const notionProperties = database.properties;
     logger.debug(`Validating database schema for ${model.name}:`, notionProperties);
 
+    // プロパティ名のマッピングの検証
+    const propertyNames = Object.keys(notionProperties);
+    logger.debug(`Available properties in database: ${propertyNames.join(', ')}`);
+
     model.fields = Object.entries(notionProperties).map(([key, property]) => {
       const isOptional = property.type !== NotionPropertyTypes.Title;
       return {
@@ -130,7 +138,7 @@ export class NotionClient {
         }, {} as Record<string, NotionDatabaseProperty>)
       };
 
-      logger.debug(`Retrieved database schema for ${databaseId}:`, database.properties);
+      logger.debug(`Retrieved database schema, properties:`, Object.keys(database.properties));
       return database;
     } catch (error: any) {
       logger.error(`Failed to retrieve database schema for ${databaseId}:`, error);

@@ -75,7 +75,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "jest --verbose"
+args = "jest --verbose tests/notion-connection.test.ts"
 
 [[workflows.workflow]]
 name = "Test Query Builder"
