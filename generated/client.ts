@@ -1,12 +1,26 @@
 import { Client } from '@notionhq/client';
 import { Task, Document, Domain } from './types';
-import { QueryBuilder } from '../query/builder';
+import { QueryBuilder } from '../src/query/builder';
 
 export class NotionOrmClient {
   private notion: Client;
+  private relationMappings: Record<string, Record<string, string>>;
 
   constructor(apiKey: string) {
     this.notion = new Client({ auth: apiKey });
+    this.relationMappings = {
+      Document: {
+        Domain: 'f6e300b8598e42208a2c163444655842'  // Domain database ID
+      },
+      Domain: {
+        Documents: '13f70a52207f80d58f64cdc627123f87'  // Document database ID
+      },
+      Task: {
+        'Sub-item': 'aac810fcb3414dbb9c46ce485bc6449b',  // Task database ID (self-reference)
+        'Parent item': 'aac810fcb3414dbb9c46ce485bc6449b',  // Task database ID (self-reference)
+        Action: 'aac810fcb3414dbb9c46ce485bc6449b'  // Task database ID (self-reference)
+      }
+    };
   }
 
   // Task related methods
@@ -23,7 +37,12 @@ export class NotionOrmClient {
   }
 
   queryTasks(): QueryBuilder<Task> {
-    return new QueryBuilder<Task>(this.notion, "aac810fcb3414dbb9c46ce485bc6449b", "Task");
+    return new QueryBuilder<Task>(
+      this.notion,
+      "aac810fcb3414dbb9c46ce485bc6449b",
+      "Task",
+      this.relationMappings.Task
+    );
   }
 
   private mapResponseToTask(page: any): Task {
@@ -66,7 +85,12 @@ export class NotionOrmClient {
   }
 
   queryDocuments(): QueryBuilder<Document> {
-    return new QueryBuilder<Document>(this.notion, "13f70a52207f80d58f64cdc627123f87", "Document");
+    return new QueryBuilder<Document>(
+      this.notion,
+      "13f70a52207f80d58f64cdc627123f87",
+      "Document",
+      this.relationMappings.Document
+    );
   }
 
   private mapResponseToDocument(page: any): Document {
@@ -103,7 +127,12 @@ export class NotionOrmClient {
   }
 
   queryDomains(): QueryBuilder<Domain> {
-    return new QueryBuilder<Domain>(this.notion, "f6e300b8598e42208a2c163444655842", "Domain");
+    return new QueryBuilder<Domain>(
+      this.notion,
+      "f6e300b8598e42208a2c163444655842",
+      "Domain",
+      this.relationMappings.Domain
+    );
   }
 
   private mapResponseToDomain(page: any): Domain {

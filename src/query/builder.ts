@@ -39,7 +39,8 @@ export class QueryBuilder<T> {
   constructor(
     private notion: Client,
     private databaseId: string,
-    private modelName: string
+    private modelName: string,
+    private relationMappings: Record<string, string> = {}
   ) {}
 
   where(property: keyof T | string, operator: FilterOperator, value: any): QueryBuilder<T> {
@@ -51,23 +52,46 @@ export class QueryBuilder<T> {
     return this;
   }
 
-  whereRelation<R>(
+  whereRelation<R extends { id: string }>(
     relationProperty: keyof T | string,
-    relationFilter: (builder: QueryBuilder<R>) => QueryBuilder<R>
-  ): QueryBuilder<T> {
-    const subBuilder = new QueryBuilder<R>(this.notion, '', relationProperty as string);
-    relationFilter(subBuilder);
+    relationFilter: (builder: QueryBuilder<R>) => QueryBuilder<R> | Promise<QueryBuilder<R>>
+  ): Promise<QueryBuilder<T>> {
+    return (async () => {
+      try {
+        const relatedDatabaseId = this.relationMappings[String(relationProperty)];
+        if (!relatedDatabaseId) {
+          throw new Error(`No database ID mapping found for relation: ${String(relationProperty)}`);
+        }
 
-    const subFilters = subBuilder.getFilters();
-    for (const filter of subFilters) {
-      if ('property' in filter) {  // FilterCondition型のみを処理
+        const subBuilder = new QueryBuilder<R>(
+          this.notion,
+          relatedDatabaseId,
+          String(relationProperty)
+        );
+
+        const filteredBuilder = await Promise.resolve(relationFilter(subBuilder));
+        const relatedObjects = await filteredBuilder.execute();
+
+        if (relatedObjects.length === 0) {
+          logger.warn(`No related objects found for relation ${String(relationProperty)}`);
+          return this;
+        }
+
         this.filters.push({
           relationProperty: String(relationProperty),
-          filter: filter
+          filter: {
+            property: 'id',
+            operator: 'equals',
+            value: relatedObjects[0].id
+          }
         });
+
+        return this;
+      } catch (error) {
+        logger.error(`Error in whereRelation for ${String(relationProperty)}:`, error);
+        throw error;
       }
-    }
-    return this;
+    })();
   }
 
   include(relationProperty: keyof T | string): QueryBuilder<T> {
@@ -101,38 +125,41 @@ export class QueryBuilder<T> {
     if ('relationProperty' in condition) {
       return {
         property: condition.relationProperty,
-        relation: this.buildFilter(condition.filter)
+        relation: {
+          contains: condition.filter.value
+        }
       };
     }
 
     const { property, operator, value } = condition;
+    const propertyType = this.getPropertyType(property);
 
     switch (operator) {
       case 'equals':
         return {
           property,
-          [this.getPropertyType(property)]: {
+          [propertyType]: {
             equals: value
           }
         };
       case 'contains':
         return {
           property,
-          [this.getPropertyType(property)]: {
+          [propertyType]: {
             contains: value
           }
         };
       case 'startsWith':
         return {
           property,
-          [this.getPropertyType(property)]: {
+          [propertyType]: {
             starts_with: value
           }
         };
       case 'endsWith':
         return {
           property,
-          [this.getPropertyType(property)]: {
+          [propertyType]: {
             ends_with: value
           }
         };
@@ -149,14 +176,14 @@ export class QueryBuilder<T> {
       case 'is_empty':
         return {
           property,
-          [this.getPropertyType(property)]: {
+          [propertyType]: {
             is_empty: true
           }
         };
       case 'is_not_empty':
         return {
           property,
-          [this.getPropertyType(property)]: {
+          [propertyType]: {
             is_not_empty: true
           }
         };
@@ -166,7 +193,6 @@ export class QueryBuilder<T> {
   }
 
   private getPropertyType(property: string): string {
-    // プロパティタイプをスキーマ情報から推測
     if (property === 'Title' || property === 'Name') return NotionPropertyTypes.Title;
     if (property.endsWith('At')) return NotionPropertyTypes.Date;
     if (property.startsWith('is') || property === 'IsActive') return NotionPropertyTypes.Checkbox;
@@ -207,7 +233,6 @@ export class QueryBuilder<T> {
       const response = await this.notion.databases.query(query);
       const results = response.results.map(page => this.mapResponseToModel(page));
 
-      // リレーションの取得（必要な場合のみ）
       if (this.includedRelations.size > 0) {
         await Promise.all(results.map(result => this.loadRelations(result)));
       }
@@ -222,7 +247,7 @@ export class QueryBuilder<T> {
   private async loadRelations(model: any): Promise<void> {
     for (const relationProperty of this.includedRelations) {
       if (model[relationProperty]) {
-        const relationIds = Array.isArray(model[relationProperty]) 
+        const relationIds = Array.isArray(model[relationProperty])
           ? model[relationProperty].map((rel: { id: string }) => rel.id)
           : [model[relationProperty].id];
 
@@ -230,7 +255,6 @@ export class QueryBuilder<T> {
           relationIds.map(id => this.getRelationData(id))
         );
 
-        // 単一のリレーションか配列かを維持
         model[relationProperty] = Array.isArray(model[relationProperty])
           ? relationData
           : relationData[0];
@@ -239,18 +263,15 @@ export class QueryBuilder<T> {
   }
 
   private async getRelationData(id: string): Promise<any> {
-    // キャッシュチェック
     const cached = this.relationCache[id];
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
       logger.info(`Using cached relation data for ID: ${id}`);
       return cached.data;
     }
 
-    // キャッシュがない場合は取得
     const response = await this.notion.pages.retrieve({ page_id: id });
     const mappedData = this.mapResponseToModel(response);
 
-    // キャッシュを更新
     this.relationCache[id] = {
       data: mappedData,
       timestamp: Date.now()
@@ -295,8 +316,7 @@ export class QueryBuilder<T> {
           avatar_url: user.avatar_url
         })) || [];
       case NotionPropertyTypes.Relation:
-        const relations = property.relation?.map((item: any) => ({ id: item.id })) || [];
-        return relations.length === 1 ? relations[0] : relations;
+        return property.relation?.map((item: any) => ({ id: item.id })) || [];
       case NotionPropertyTypes.Formula:
         return property.formula?.string || property.formula?.number?.toString() || '';
       default:

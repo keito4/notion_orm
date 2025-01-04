@@ -31,6 +31,8 @@ export class NotionClient {
         logger.info(`Validating schema for model ${model.name} with database ID ${model.notionDatabaseId}`);
 
         try {
+          // データベースの存在確認
+          await this.validateDatabaseExists(model.notionDatabaseId, model.name);
           const database = await this.getDatabaseSchema(model.notionDatabaseId);
           await this.validateDatabaseSchema(model, database);
           logger.success(`Validated schema for model ${model.name}`);
@@ -44,14 +46,31 @@ export class NotionClient {
     } catch (error) {
       if (error instanceof Error) {
         logger.error(`Schema validation failed: ${error.message}`);
+        if (error.stack) {
+          logger.debug('Error stack trace:', error.stack);
+        }
       }
       throw error;
     }
   }
 
+  private async validateDatabaseExists(databaseId: string, modelName: string): Promise<void> {
+    try {
+      await this.client.databases.retrieve({
+        database_id: databaseId
+      });
+      logger.info(`Successfully verified database existence for ${modelName} (ID: ${databaseId})`);
+    } catch (error: any) {
+      if (error.status === 404) {
+        throw new Error(`Database not found: ${databaseId} for model ${modelName}`);
+      }
+      throw new Error(`Failed to verify database ${databaseId} for model ${modelName}: ${error.message}`);
+    }
+  }
+
   private async validateDatabaseSchema(model: Model, database: NotionDatabase): Promise<void> {
     const notionProperties = database.properties;
-    logger.info('Notion database properties:', notionProperties);
+    logger.info(`Validating database schema for ${model.name}:`, notionProperties);
 
     // Notionデータベースの構造に基づいて、モデルのフィールドを更新
     model.fields = Object.entries(notionProperties).map(([key, property]) => {
@@ -71,6 +90,8 @@ export class NotionClient {
         logger.info(`Property ${property.name} has options:`, options.map(opt => opt.name));
       }
     });
+
+    logger.success(`Schema validation completed for ${model.name}`);
   }
 
   async getDatabaseSchema(databaseId: string): Promise<NotionDatabase> {
@@ -88,10 +109,13 @@ export class NotionClient {
         }, {} as Record<string, NotionDatabaseProperty>)
       };
 
-      logger.info('Retrieved database schema:', database.properties);
+      logger.info(`Retrieved database schema for ${databaseId}:`, database.properties);
       return database;
     } catch (error: any) {
-      logger.error(`Failed to retrieve database schema: ${error.message}`);
+      logger.error(`Failed to retrieve database schema for ${databaseId}: ${error.message}`);
+      if (error.stack) {
+        logger.debug('Error stack trace:', error.stack);
+      }
       throw error;
     }
   }
