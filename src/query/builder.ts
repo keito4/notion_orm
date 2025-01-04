@@ -1,3 +1,6 @@
+/**
+ * QueryBuilder.ts
+ */
 import { Client } from "@notionhq/client";
 import { NotionPropertyTypes } from "../types/notionTypes";
 import { logger } from "../utils/logger";
@@ -243,7 +246,6 @@ export class QueryBuilder<T> {
 
   /**
    * リレーションか否かを判断
-   * (モデル設定で Relation になっているか / relationMappings があるか)
    */
   private isRelationProperty(property: string): boolean {
     const modelTypes = this.propertyTypes[this.modelName] || {};

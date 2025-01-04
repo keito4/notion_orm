@@ -1,116 +1,309 @@
-import { QueryBuilder } from '../src/query/builder';
-import { Client } from '@notionhq/client';
-import { NotionPropertyTypes } from '../src/types/notionTypes';
+/**
+ * tests/query.test.ts
+ */
+import { QueryBuilder } from "../src/query/builder";
+import { Client } from "@notionhq/client";
+import { NotionPropertyTypes } from "../src/types/notionTypes";
 
-interface MockDocument {
-  id: string;
-  title?: string; // Added optional title property
-  domain: {
-    name: string;
-  };
-  createdAt?: string; // Added optional createdAt property
-  status?: string; // Added optional status property
-
-}
-
-describe('Query Builder', () => {
-  let mockNotion: jest.Mocked<Client>;
+describe("QueryBuilder", () => {
+  let notionMock: any;
 
   beforeEach(() => {
-    mockNotion = {
+    notionMock = {
       databases: {
         query: jest.fn(),
-        retrieve: jest.fn()
       },
       pages: {
-        retrieve: jest.fn()
-      }
-    } as unknown as jest.Mocked<Client>;
+        retrieve: jest.fn(),
+      },
+    };
   });
 
-  test('whereRelation builds correct filter', async () => {
-    const builder = new QueryBuilder<MockDocument>(mockNotion, 'test-db', 'Document');
+  const databaseId = "test-database-id";
+  const modelName = "TestModel";
 
-    builder
-      .whereRelation('domain', domain => 
-        domain.where('name', 'equals', '技術ブログ')
-      );
+  // リレーション/プロパティの仮設定例
+  const relationMappings = {
+    TestModel: {
+      relatedItems: "related-items-db-id",
+    },
+  };
+  const propertyMappings = {
+    TestModel: {
+      titleField: "Title",
+      statusField: "Status",
+      dateField: "Date",
+      relatedItems: "Related Items",
+    },
+  };
+  const propertyTypes = {
+    TestModel: {
+      titleField: NotionPropertyTypes.Title,
+      statusField: NotionPropertyTypes.Select,
+      dateField: NotionPropertyTypes.Date,
+      relatedItems: NotionPropertyTypes.Relation,
+    },
+  };
 
-    const filters = builder.getFilters();
-    expect(filters).toHaveLength(1);
-    expect(filters[0]).toMatchObject({
-      relationProperty: 'domain',
-      filter: {
-        property: 'name',
-        operator: 'equals',
-        value: '技術ブログ'
-      }
-    });
-  });
-
-  test('include loads relation data', async () => {
-    mockNotion.databases.query.mockResolvedValueOnce({
-      results: [{
-        id: 'doc-1',
-        properties: {
-          domain: {
-            type: NotionPropertyTypes.Relation,
-            relation: [{ id: 'domain-1' }]
-          }
-        }
-      }]
+  it("should build a simple query with one filter", async () => {
+    notionMock.databases.query.mockResolvedValueOnce({
+      results: [
+        {
+          id: "page-1",
+          properties: {
+            Title: {
+              type: "title",
+              title: [{ plain_text: "Test Page" }],
+            },
+            Date: {
+              type: "date",
+              date: { start: "2023-10-01" },
+            },
+          },
+          created_time: "2023-10-01T00:00:00.000Z",
+          last_edited_time: "2023-10-01T12:00:00.000Z",
+        },
+      ],
     } as any);
 
-    mockNotion.pages.retrieve.mockResolvedValueOnce({
-      id: 'domain-1',
-      properties: {
-        name: {
-          type: NotionPropertyTypes.Title,
-          title: [{ plain_text: '技術ブログ' }]
-        }
-      }
-    } as any);
+    const qb = new QueryBuilder<any>(
+      notionMock,
+      databaseId,
+      modelName,
+      relationMappings,
+      propertyMappings,
+      propertyTypes
+    );
 
-    const builder = new QueryBuilder<MockDocument>(mockNotion, 'test-db', 'Document');
-
-    const results = await builder
-      .include('domain')
+    const result = await qb
+      .where("titleField", "equals", "Test Page")
+      .orderBy("dateField", "descending")
+      .limit(10)
+      .after("some-cursor")
       .execute();
 
-    expect(results[0].domain).toBeDefined();
-    expect(results[0].domain.name).toBe('技術ブログ');
+    // 期待するクエリが正しく呼ばれたか
+    expect(notionMock.databases.query).toHaveBeenCalledTimes(1);
+    const [callArgs] = notionMock.databases.query.mock.calls[0];
+    expect(callArgs).toEqual({
+      database_id: databaseId,
+      filter: {
+        property: "Title",
+        title: { equals: "Test Page" },
+      },
+      sorts: [
+        {
+          direction: "descending",
+          property: "Date",
+        },
+      ],
+      page_size: 10,
+      start_cursor: "some-cursor",
+    });
+
+    // レスポンスのマッピング結果
+    expect(result).toEqual([
+      {
+        id: "page-1",
+        Title: "Test Page",
+        Date: "2023-10-01",
+        createdTime: "2023-10-01T00:00:00.000Z",
+        lastEditedTime: "2023-10-01T12:00:00.000Z",
+      },
+    ]);
   });
 
-  test('complex query combines multiple conditions', async () => {
-    const builder = new QueryBuilder<MockDocument>(mockNotion, 'test-db', 'Document');
+  it("should build multiple filters with AND", async () => {
+    notionMock.databases.query.mockResolvedValueOnce({ results: [] } as any);
 
-    builder
-      .whereRelation('domain', domain => 
-        domain.where('name', 'equals', '技術ブログ')
+    const qb = new QueryBuilder<any>(
+      notionMock,
+      databaseId,
+      modelName,
+      relationMappings,
+      propertyMappings,
+      propertyTypes
+    );
+
+    await qb
+      .where("titleField", "contains", "Hello")
+      .where("statusField", "equals", "Open")
+      .execute();
+
+    expect(notionMock.databases.query).toHaveBeenCalledTimes(1);
+    const [callArgs] = notionMock.databases.query.mock.calls[0];
+    expect(callArgs.filter).toEqual({
+      and: [
+        {
+          property: "Title",
+          title: { contains: "Hello" },
+        },
+        {
+          property: "Status",
+          select: { equals: "Open" },
+        },
+      ],
+    });
+  });
+
+  it("should build a relation filter", async () => {
+    notionMock.databases.query.mockResolvedValueOnce({ results: [] } as any);
+
+    const qb = new QueryBuilder<any>(
+      notionMock,
+      databaseId,
+      modelName,
+      relationMappings,
+      propertyMappings,
+      propertyTypes
+    );
+
+    await qb
+      .whereRelation("relatedItems", (subQb: QueryBuilder<any>) =>
+        subQb.where("titleField", "equals", "SubPage")
       )
-      .where('createdAt', 'after', '2024-01-01')
-      .where('status', 'equals', 'published')
-      .orderBy('createdAt', 'desc')
-      .limit(5);
+      .execute();
 
-    const filters = builder.getFilters();
-    expect(filters).toHaveLength(3);
-
-    // リレーションフィルター
-    expect(filters[0]).toMatchObject({
-      relationProperty: 'domain'
+    const [callArgs] = notionMock.databases.query.mock.calls[0];
+    expect(callArgs.filter).toEqual({
+      property: "Related Items",
+      relation: { contains: "SubPage" },
     });
+  });
 
-    // 日付フィルター
-    expect(filters[1]).toMatchObject({
-      property: 'createdAt',
-      operator: 'after'
-    });
+  it("should include relation data", async () => {
+    notionMock.databases.query.mockResolvedValueOnce({
+      results: [
+        {
+          id: "page-1",
+          properties: {
+            Title: {
+              type: "title",
+              title: [{ plain_text: "Main Page" }],
+            },
+            "Related Items": {
+              type: "relation",
+              relation: [{ id: "relation-page-1" }, { id: "relation-page-2" }],
+            },
+          },
+          created_time: "2023-10-02T00:00:00.000Z",
+          last_edited_time: "2023-10-02T12:00:00.000Z",
+        },
+      ],
+    } as any);
 
-    // ステータスフィルター
-    expect(filters[2]).toMatchObject({
-      property: 'status',
-      operator: 'equals'
+    notionMock.pages.retrieve
+      .mockResolvedValueOnce({
+        id: "relation-page-1",
+        properties: {
+          Title: {
+            type: "title",
+            title: [{ plain_text: "Relation Page 1" }],
+          },
+        },
+        created_time: "2023-10-03T00:00:00.000Z",
+        last_edited_time: "2023-10-03T12:00:00.000Z",
+      } as any)
+      .mockResolvedValueOnce({
+        id: "relation-page-2",
+        properties: {
+          Title: {
+            type: "title",
+            title: [{ plain_text: "Relation Page 2" }],
+          },
+        },
+        created_time: "2023-10-04T00:00:00.000Z",
+        last_edited_time: "2023-10-04T12:00:00.000Z",
+      } as any);
+
+    const qb = new QueryBuilder<any>(
+      notionMock,
+      databaseId,
+      modelName,
+      relationMappings,
+      propertyMappings,
+      propertyTypes
+    );
+
+    const result = await qb.include("relatedItems").execute();
+
+    expect(notionMock.databases.query).toHaveBeenCalledTimes(1);
+    // relation のページ取得が 2 回呼ばれる
+    expect(notionMock.pages.retrieve).toHaveBeenCalledTimes(2);
+
+    expect(result).toEqual([
+      {
+        id: "page-1",
+        "Related Items": [
+          {
+            id: "relation-page-1",
+            Title: "Relation Page 1",
+            createdTime: "2023-10-03T00:00:00.000Z",
+            lastEditedTime: "2023-10-03T12:00:00.000Z",
+          },
+          {
+            id: "relation-page-2",
+            Title: "Relation Page 2",
+            createdTime: "2023-10-04T00:00:00.000Z",
+            lastEditedTime: "2023-10-04T12:00:00.000Z",
+          },
+        ],
+        Title: "Main Page",
+        createdTime: "2023-10-02T00:00:00.000Z",
+        lastEditedTime: "2023-10-02T12:00:00.000Z",
+      },
+    ]);
+  });
+
+  it("should build filter for number and checkbox properties", async () => {
+    // numberField と checkboxField を追加
+    const extendedPropertyTypes = {
+      TestModel: {
+        numberField: NotionPropertyTypes.Number,
+        checkboxField: NotionPropertyTypes.Checkbox,
+      },
+    };
+    const extendedPropertyMappings = {
+      TestModel: {
+        numberField: "Number",
+        checkboxField: "Checkbox",
+      },
+    };
+
+    notionMock.databases.query.mockResolvedValueOnce({ results: [] } as any);
+
+    const qb = new QueryBuilder<any>(
+      notionMock,
+      databaseId,
+      modelName,
+      relationMappings,
+      {
+        ...propertyMappings,
+        ...extendedPropertyMappings,
+      },
+      {
+        ...propertyTypes,
+        ...extendedPropertyTypes,
+      }
+    );
+
+    await qb
+      .where("numberField", "equals", 123)
+      .where("checkboxField", "equals", true)
+      .execute();
+
+    const [callArgs] = notionMock.databases.query.mock.calls[0];
+    expect(callArgs.filter).toEqual({
+      and: [
+        {
+          property: "Number",
+          number: { equals: 123 },
+        },
+        {
+          property: "Checkbox",
+          checkbox: { equals: true },
+        },
+      ],
     });
   });
 });
