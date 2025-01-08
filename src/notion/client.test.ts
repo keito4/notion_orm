@@ -2,12 +2,18 @@ import { describe, test, expect, beforeEach, jest } from "@jest/globals";
 import type { 
   ListUsersResponse,
   DatabaseObjectResponse,
-  PropertyItemObjectResponse,
-  RichTextItemResponse,
-  QueryDatabaseParameters,
-  GetDatabaseParameters
+  GetDatabaseResponse,
 } from "@notionhq/client/build/src/api-endpoints";
+import { Client } from "@notionhq/client";
 import { Schema } from "../types";
+
+// APIResponseError interface definition based on Notion's API error structure
+interface APIResponseError extends Error {
+  code: string;
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+}
 
 // APIResponseErrorのパラメータ型を定義
 type NotionErrorParams = {
@@ -19,22 +25,48 @@ type NotionErrorParams = {
 };
 
 const mockListResponse: ListUsersResponse = {
-  results: [],
+  results: [
+    {
+      object: "user",
+      id: "user-1",
+      type: "person",
+      person: {
+        email: "test@example.com",
+      },
+      name: "Test User",
+      avatar_url: null,
+    },
+  ],
   object: "list",
   type: "user",
   has_more: false,
   next_cursor: null,
-  user: {}
+  user: {},
 };
 
-const mockDatabaseResponse: DatabaseObjectResponse = {
+const mockDatabaseResponse: GetDatabaseResponse = {
   object: "database",
-  id: "test-db-id",
-  created_time: "2024-01-08",
-  last_edited_time: "2024-01-08",
+  id: "b1234567-89ab-cdef-0123-456789abcdef",
+  created_time: "2024-01-08T00:00:00.000Z",
+  last_edited_time: "2024-01-08T00:00:00.000Z",
   icon: null,
   cover: null,
-  title: [],
+  title: [
+    {
+      type: "text",
+      text: { content: "Test Database", link: null },
+      annotations: {
+        bold: false,
+        italic: false,
+        strikethrough: false,
+        underline: false,
+        code: false,
+        color: "default",
+      },
+      plain_text: "Test Database",
+      href: null,
+    },
+  ],
   description: [],
   properties: {
     Title: {
@@ -68,8 +100,8 @@ const mockDatabaseResponse: DatabaseObjectResponse = {
     }
   },
   parent: {
-    type: "page_id",
-    page_id: "parent-page-id"
+    type: "workspace",
+    workspace: true
   },
   url: "https://notion.so/test-db",
   is_inline: false,
@@ -86,6 +118,22 @@ const mockDatabaseResponse: DatabaseObjectResponse = {
   in_trash: false
 };
 
+class MockAPIResponseError extends Error implements APIResponseError {
+  code: string;
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+
+  constructor(params: NotionErrorParams) {
+    super(params.message);
+    this.name = "APIResponseError";
+    this.code = params.code;
+    this.status = params.status;
+    this.headers = params.headers;
+    this.body = params.rawBodyText;
+  }
+}
+
 // モックの設定
 const mockClient = {
   users: {
@@ -93,25 +141,25 @@ const mockClient = {
       .mockResolvedValue(mockListResponse)
   },
   databases: {
-    retrieve: jest.fn<(params: GetDatabaseParameters) => Promise<DatabaseObjectResponse>>()
-      .mockImplementation(async (params) => {
+    retrieve: jest.fn<(params: { database_id: string }) => Promise<GetDatabaseResponse>>()
+      .mockImplementation((params) => {
         if (params.database_id === "invalid-id") {
-          const error = Object.assign(new Error("Invalid database ID"), {
+          return Promise.reject(new MockAPIResponseError({
             code: "invalid_request_url",
+            message: "Invalid database ID",
             status: 400,
             headers: {},
             rawBodyText: "Invalid database ID"
-          });
-          return Promise.reject(error);
+          }));
         }
         if (params.database_id === "unauthorized-id") {
-          const error = Object.assign(new Error("API key is invalid"), {
+          return Promise.reject(new MockAPIResponseError({
             code: "unauthorized",
+            message: "API key is invalid",
             status: 401,
             headers: {},
             rawBodyText: "API key is invalid"
-          });
-          return Promise.reject(error);
+          }));
         }
         return Promise.resolve(mockDatabaseResponse);
       })
@@ -123,21 +171,11 @@ const ErrorCodes = {
   Unauthorized: "unauthorized"
 } as const;
 
-jest.mock("@notionhq/client", () => {
-  class MockAPIResponseError extends Error {
-    constructor(params: NotionErrorParams) {
-      super(params.message);
-      this.name = "APIResponseError";
-      Object.assign(this, params);
-    }
-  }
-
-  return {
-    Client: jest.fn().mockImplementation(() => mockClient),
-    APIResponseError: MockAPIResponseError,
-    APIErrorCode: ErrorCodes
-  };
-});
+jest.mock("@notionhq/client", () => ({
+  Client: jest.fn().mockImplementation(() => mockClient),
+  APIResponseError: MockAPIResponseError,
+  APIErrorCode: ErrorCodes
+}));
 
 describe("Notion Connection", () => {
   beforeEach(() => {
@@ -156,33 +194,64 @@ describe("Notion Connection", () => {
       models: [
         {
           name: "Document",
-          fields: [],
-          notionDatabaseId: "valid-database-id-1",
+          fields: [
+            {
+              name: "title",
+              type: "title",
+              optional: false,
+              attributes: [],
+              notionName: "Title"
+            },
+            {
+              name: "status",
+              type: "select",
+              optional: true,
+              attributes: [],
+              notionName: "Status"
+            }
+          ],
+          notionDatabaseId: "b1234567-89ab-cdef-0123-456789abcdef",
         },
         {
           name: "Domain",
-          fields: [],
-          notionDatabaseId: "valid-database-id-2",
+          fields: [
+            {
+              name: "title",
+              type: "title",
+              optional: false,
+              attributes: [],
+              notionName: "Title"
+            }
+          ],
+          notionDatabaseId: "c1234567-89ab-cdef-0123-456789abcdef",
         },
       ],
     };
 
-    const response = await mockClient.databases.retrieve({ database_id: "valid-database-id-1" });
+    const response = await mockClient.databases.retrieve({ database_id: schema.models[0].notionDatabaseId });
     expect(response).toEqual(mockDatabaseResponse);
     expect(mockClient.databases.retrieve).toHaveBeenCalledTimes(1);
   });
 
   test("should throw error for invalid database ID", async () => {
     await expect(mockClient.databases.retrieve({ database_id: "invalid-id" }))
-      .rejects.toHaveProperty('code', 'invalid_request_url');
-    await expect(mockClient.databases.retrieve({ database_id: "invalid-id" }))
-      .rejects.toHaveProperty('status', 400);
+      .rejects
+      .toMatchObject({
+        code: "invalid_request_url",
+        status: 400,
+        message: "Invalid database ID",
+        name: "APIResponseError"
+      });
   });
 
   test("should throw error for unauthorized access", async () => {
     await expect(mockClient.databases.retrieve({ database_id: "unauthorized-id" }))
-      .rejects.toHaveProperty('code', 'unauthorized');
-    await expect(mockClient.databases.retrieve({ database_id: "unauthorized-id" }))
-      .rejects.toHaveProperty('status', 401);
+      .rejects
+      .toMatchObject({
+        code: "unauthorized",
+        status: 401,
+        message: "API key is invalid",
+        name: "APIResponseError"
+      });
   });
 });

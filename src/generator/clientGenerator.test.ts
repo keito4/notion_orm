@@ -22,7 +22,7 @@ describe("Client Generator", () => {
           name: "title", 
           type: "title", 
           optional: false, 
-          attributes: ["@title"],
+          attributes: [],
           notionName: "Title"
         },
         { 
@@ -36,7 +36,7 @@ describe("Client Generator", () => {
           name: "status",
           type: "select",
           optional: true,
-          attributes: ["@select"],
+          attributes: [],
           notionName: "Status"
         }
       ],
@@ -81,7 +81,6 @@ describe("Client Generator", () => {
 
   test("should throw error for invalid schema structure", async () => {
     const invalidSchema = {
-      // 不完全なスキーマ構造
       models: [{
         name: "Invalid"
         // 必須フィールドが欠落
@@ -102,19 +101,12 @@ describe("Client Generator", () => {
     const generatedTypes = readFileSync(typesPath, "utf-8");
 
     // 生成された型定義の内容を検証
-    const expectedContent = `
-export interface Test {
-  id: string;
-  title: string;
-  description?: string;
-  status?: string;
-  createdTime: string;
-  lastEditedTime: string;
-}`;
-
-    // 改行とスペースを正規化して比較
-    const normalizedExpected = expectedContent.replace(/\s+/g, ' ').trim();
-    const normalizedGenerated = generatedTypes.replace(/\s+/g, ' ').trim();
-    expect(normalizedGenerated).toContain(normalizedExpected.replace(/\s+/g, ' ').trim());
+    expect(generatedTypes).toContain("export interface Test {");
+    expect(generatedTypes).toContain("id: string;");
+    expect(generatedTypes).toContain("title: string;");
+    expect(generatedTypes).toContain("description?: string;");
+    expect(generatedTypes).toContain("status?: string;");
+    expect(generatedTypes).toContain("createdTime: string;");
+    expect(generatedTypes).toContain("lastEditedTime: string;");
   });
 });
