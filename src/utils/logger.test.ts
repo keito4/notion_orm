@@ -14,10 +14,15 @@ declare const process: {
   };
 };
 
+type MockSpyInstance = {
+  mockImplementation: (fn: (...args: any[]) => void) => any;
+  mockRestore: () => void;
+};
+
 describe("Logger", () => {
   let mockConsole: {
-    log: jest.SpyInstance;
-    error: jest.SpyInstance;
+    log: MockSpyInstance;
+    error: MockSpyInstance;
   };
 
   beforeEach(() => {
