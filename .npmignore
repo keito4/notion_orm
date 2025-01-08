@@ -1,0 +1,8 @@
+src/
+tests/
+examples/
+attached_assets/
+.eslintrc
+jest.config.js
+tsconfig.json
+*.log

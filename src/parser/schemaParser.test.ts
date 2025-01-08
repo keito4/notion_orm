@@ -1,13 +1,5 @@
-// parser.test.ts
-import { parseSchema } from "../src/parser/schemaParser";
-
-// jest.mock("../src/utils/logger", () => ({
-//   logger: {
-//     info: jest.fn(),
-//     warn: jest.fn(),
-//     error: jest.fn(),
-//   },
-// }));
+import { parseSchema } from "./schemaParser";
+import { describe, test, expect } from "@jest/globals";
 
 describe("Schema Parser", () => {
   test("should parse valid schema with one model", () => {
