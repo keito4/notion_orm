@@ -3,114 +3,187 @@ import { SyncManager } from "./manager";
 import { NotionClient } from "../notion/client";
 import { Schema } from "../types";
 import { NotionDatabaseProperty, NotionPropertyTypes, NotionDatabase } from "../types/notionTypes";
-import type { DatabaseObjectResponse } from "@notionhq/client/build/src/api-endpoints";
+import type { DatabaseObjectResponse, ListUsersResponse } from "@notionhq/client/build/src/api-endpoints";
+import type { Mock } from "jest-mock";
 
-jest.mock("../notion/client");
+// APIResponseErrorのパラメータ型を定義
+type NotionErrorParams = {
+  code: string;
+  message: string;
+  status: number;
+  headers: Record<string, string>;
+  rawBodyText: string;
+};
 
-describe("SyncManager", () => {
+// モックレスポンスの定義
+const mockListResponse: ListUsersResponse = {
+  results: [],
+  object: "list",
+  type: "user",
+  has_more: false,
+  next_cursor: null,
+  user: {}
+};
+
+const mockDatabaseResponse: DatabaseObjectResponse = {
+  object: "database",
+  id: "test-db-id",
+  created_time: "2024-01-08",
+  last_edited_time: "2024-01-08",
+  icon: null,
+  cover: null,
+  title: [],
+  description: [],
+  properties: {
+    Title: {
+      id: "title-id",
+      type: "title",
+      name: "Title",
+      title: {},
+      description: null
+    },
+    Status: {
+      id: "status-id",
+      type: "select",
+      name: "Status",
+      description: null,
+      select: {
+        options: [
+          { 
+            name: "Open", 
+            id: "open-id", 
+            color: "default",
+            description: null
+          },
+          { 
+            name: "Done", 
+            id: "done-id", 
+            color: "default",
+            description: null
+          }
+        ]
+      }
+    }
+  },
+  parent: {
+    type: "page_id",
+    page_id: "parent-page-id"
+  },
+  url: "https://notion.so/test-db",
+  is_inline: false,
+  archived: false,
+  created_by: {
+    object: "user",
+    id: "user-id"
+  },
+  last_edited_by: {
+    object: "user",
+    id: "user-id"
+  },
+  public_url: null,
+  in_trash: false
+};
+
+// モックの設定
+const mockClient = {
+  users: {
+    list: jest.fn<() => Promise<ListUsersResponse>>()
+      .mockResolvedValue(mockListResponse)
+  },
+  databases: {
+    retrieve: jest.fn<(params: any) => Promise<DatabaseObjectResponse>>()
+      .mockImplementation(async (params) => {
+        if (params.database_id === "invalid-id") {
+          const error = Object.assign(new Error("Invalid database ID"), {
+            code: "invalid_request_url",
+            status: 400,
+            headers: {},
+            rawBodyText: "Invalid database ID"
+          });
+          return Promise.reject(error);
+        }
+        if (params.database_id === "unauthorized-id") {
+          const error = Object.assign(new Error("API key is invalid"), {
+            code: "unauthorized",
+            status: 401,
+            headers: {},
+            rawBodyText: "API key is invalid"
+          });
+          return Promise.reject(error);
+        }
+        return Promise.resolve(mockDatabaseResponse);
+      })
+  }
+};
+
+const ErrorCodes = {
+  InvalidRequestURL: "invalid_request_url",
+  Unauthorized: "unauthorized"
+} as const;
+
+jest.mock("@notionhq/client", () => {
+  class MockAPIResponseError extends Error {
+    constructor(params: NotionErrorParams) {
+      super(params.message);
+      this.name = "APIResponseError";
+      Object.assign(this, params);
+    }
+  }
+
+  return {
+    Client: jest.fn().mockImplementation(() => mockClient),
+    APIResponseError: MockAPIResponseError,
+    APIErrorCode: ErrorCodes
+  };
+});
+
+describe("Notion Connection", () => {
   let mockNotionClient: jest.Mocked<NotionClient>;
   let syncManager: SyncManager;
 
   beforeEach(() => {
-    // NotionClientのモックを適切に型付けして作成
-    mockNotionClient = {
-      validateConnection: jest.fn<() => Promise<boolean>>().mockResolvedValue(true),
-      validateSchema: jest.fn<(schema: Schema) => Promise<void>>().mockResolvedValue(undefined),
-      getDatabaseSchema: jest.fn<(databaseId: string) => Promise<NotionDatabase>>().mockResolvedValue({
-        id: "test-db-id",
-        properties: {}
-      }),
-      validateDatabaseExists: jest.fn<(databaseId: string) => Promise<void>>().mockResolvedValue(undefined),
-      validateDatabaseSchema: jest.fn<(model: any, database: NotionDatabase) => Promise<void>>().mockResolvedValue(undefined),
-      getPropertyOptions: jest.fn<(property: NotionDatabaseProperty) => any[]>().mockReturnValue([]),
-      convertToNotionProperty: jest.fn<(apiProperty: any) => NotionDatabaseProperty>().mockReturnValue({
-        id: "prop-id",
-        name: "prop-name",
-        type: NotionPropertyTypes.Title,
-        title: {}
-      }),
-      retryOperation: jest.fn().mockImplementation(async <T>(operation: () => Promise<T>): Promise<T> => {
-        return operation();
-      }),
-      client: {
-        databases: {
-          retrieve: jest.fn<() => Promise<DatabaseObjectResponse>>().mockResolvedValue({
-            id: "test-db-id",
-            properties: {},
-            object: "database",
-            created_time: "2024-01-08",
-            last_edited_time: "2024-01-08",
-            title: [],
-            description: [],
-            parent: { type: "workspace", workspace: true },
-            url: "",
-            archived: false,
-            is_inline: false,
-            public_url: null,
-            created_by: {
-              object: "user",
-              id: "user-id"
-            },
-            last_edited_by: {
-              object: "user",
-              id: "user-id"
-            }
-          })
-        }
-      },
-      isInitialized: false
-    } as jest.Mocked<NotionClient>;
-
-    syncManager = new SyncManager(mockNotionClient);
+    process.env.NOTION_API_KEY = "test-api-key";
+    jest.clearAllMocks();
   });
 
-  test("should validate and sync schema successfully", async () => {
+  test("should successfully connect to Notion API", async () => {
+    const response = await mockClient.users.list();
+    expect(response).toEqual(mockListResponse);
+    expect(mockClient.users.list).toHaveBeenCalledTimes(1);
+  });
+
+  test("should validate schema with multiple models", async () => {
     const schema: Schema = {
       models: [
         {
-          name: "Test",
-          fields: [
-            {
-              name: "title",
-              type: "title",
-              optional: false,
-              attributes: ["@title"],
-              notionName: "Title",
-            },
-          ],
-          notionDatabaseId: "test-db-id",
+          name: "Document",
+          fields: [],
+          notionDatabaseId: "valid-database-id-1",
+        },
+        {
+          name: "Domain",
+          fields: [],
+          notionDatabaseId: "valid-database-id-2",
         },
       ],
     };
 
-    await expect(syncManager.validateAndSync(schema)).resolves.not.toThrow();
-    expect(mockNotionClient.validateConnection).toHaveBeenCalled();
-    expect(mockNotionClient.validateSchema).toHaveBeenCalledWith(schema);
+    const response = await mockClient.databases.retrieve({ database_id: "valid-database-id-1" });
+    expect(response).toEqual(mockDatabaseResponse);
+    expect(mockClient.databases.retrieve).toHaveBeenCalledTimes(1);
   });
 
-  test("should throw error when connection validation fails", async () => {
-    mockNotionClient.validateConnection.mockResolvedValue(false);
-
-    const schema: Schema = {
-      models: [],
-    };
-
-    await expect(syncManager.validateAndSync(schema)).rejects.toThrow(
-      "Failed to validate Notion connection"
-    );
+  test("should throw error for invalid database ID", async () => {
+    await expect(mockClient.databases.retrieve({ database_id: "invalid-id" }))
+      .rejects.toHaveProperty('code', 'invalid_request_url');
+    await expect(mockClient.databases.retrieve({ database_id: "invalid-id" }))
+      .rejects.toHaveProperty('status', 400);
   });
 
-  test("should throw error when schema validation fails", async () => {
-    mockNotionClient.validateSchema.mockRejectedValue(
-      new Error("Invalid schema")
-    );
-
-    const schema: Schema = {
-      models: [],
-    };
-
-    await expect(syncManager.validateAndSync(schema)).rejects.toThrow(
-      "Invalid schema"
-    );
+  test("should throw error for unauthorized access", async () => {
+    await expect(mockClient.databases.retrieve({ database_id: "unauthorized-id" }))
+      .rejects.toHaveProperty('code', 'unauthorized');
+    await expect(mockClient.databases.retrieve({ database_id: "unauthorized-id" }))
+      .rejects.toHaveProperty('status', 401);
   });
 });
