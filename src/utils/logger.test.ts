@@ -58,12 +58,15 @@ describe("Logger", () => {
   it("should log error messages with error object", () => {
     const error = new Error("test error");
     logger.error("error message", error);
-    expect(mockConsole.error).toHaveBeenCalledTimes(3); // エラーメッセージ、スタックトレースヘッダー、スタックトレース本体
+    expect(mockConsole.error).toHaveBeenCalledTimes(2); // エラーメッセージとフォーマットされたエラー情報
+    expect(mockConsole.error).toHaveBeenNthCalledWith(1, expect.stringContaining("error message"));
+    expect(mockConsole.error).toHaveBeenNthCalledWith(2, expect.stringContaining("test error"));
   });
 
   it("should log error messages without error object", () => {
     logger.error("error message");
     expect(mockConsole.error).toHaveBeenCalledTimes(1);
+    expect(mockConsole.error).toHaveBeenCalledWith(expect.stringContaining("error message"));
   });
 
   it("should log debug messages when DEBUG is enabled", () => {
