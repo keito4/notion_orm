@@ -17,6 +17,7 @@ declare const process: {
 type MockSpyInstance = {
   mockImplementation: (fn: (...args: any[]) => void) => any;
   mockRestore: () => void;
+  mockClear: () => void;
 };
 
 describe("Logger", () => {
@@ -34,6 +35,9 @@ describe("Logger", () => {
         .spyOn(console, "error")
         .mockImplementation(() => {}),
     };
+    // テストごとにモックをクリア
+    mockConsole.log.mockClear();
+    mockConsole.error.mockClear();
   });
 
   afterEach(() => {
@@ -54,7 +58,7 @@ describe("Logger", () => {
   it("should log error messages with error object", () => {
     const error = new Error("test error");
     logger.error("error message", error);
-    expect(mockConsole.error).toHaveBeenCalledTimes(2);
+    expect(mockConsole.error).toHaveBeenCalledTimes(3); // エラーメッセージ、スタックトレースヘッダー、スタックトレース本体
   });
 
   it("should log error messages without error object", () => {
