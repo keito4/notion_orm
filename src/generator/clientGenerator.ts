@@ -4,7 +4,6 @@ import { writeFileSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { Schema } from "../types";
 import { logger } from "../utils/logger";
-import { NotionPropertyTypes } from "../types/notionTypes";
 
 /**
  * この関数は:

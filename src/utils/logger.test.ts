@@ -14,21 +14,26 @@ declare const process: {
   };
 };
 
+type MockSpyInstance = {
+  mockImplementation: (fn: () => void) => MockSpyInstance;
+  mockRestore: () => void;
+  mockClear: () => void;
+};
+
 describe("Logger", () => {
   let mockConsole: {
-    log: jest.Mock<unknown>;
-    error: jest.Mock<unknown>;
+    log: MockSpyInstance;
+    error: MockSpyInstance;
   };
 
   beforeEach(() => {
     mockConsole = {
-      log: jest
-        .spyOn(console, "log")
-        .mockImplementation(() => {}) as jest.Mock<unknown>,
-      error: jest
-        .spyOn(console, "error")
-        .mockImplementation(() => {}) as jest.Mock<unknown>,
+      log: jest.spyOn(console, "log").mockImplementation(() => {}),
+      error: jest.spyOn(console, "error").mockImplementation(() => {}),
     };
+    // テストごとにモックをクリア
+    mockConsole.log.mockClear();
+    mockConsole.error.mockClear();
   });
 
   afterEach(() => {
@@ -49,12 +54,23 @@ describe("Logger", () => {
   it("should log error messages with error object", () => {
     const error = new Error("test error");
     logger.error("error message", error);
-    expect(mockConsole.error).toHaveBeenCalledTimes(2);
+    expect(mockConsole.error).toHaveBeenCalledTimes(3); // エラーメッセージとフォーマットされたエラー情報
+    expect(mockConsole.error).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining("error message")
+    );
+    expect(mockConsole.error).toHaveBeenNthCalledWith(
+      3,
+      expect.stringContaining("test error")
+    );
   });
 
   it("should log error messages without error object", () => {
     logger.error("error message");
     expect(mockConsole.error).toHaveBeenCalledTimes(1);
+    expect(mockConsole.error).toHaveBeenCalledWith(
+      expect.stringContaining("error message")
+    );
   });
 
   it("should log debug messages when DEBUG is enabled", () => {

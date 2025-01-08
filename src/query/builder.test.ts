@@ -19,29 +19,34 @@ describe("QueryBuilder", () => {
     };
   });
 
-  const databaseId = "test-database-id";
+  const databaseId = "b1234567-89ab-cdef-0123-456789abcdef"; // 有効なUUID形式
   const modelName = "TestModel";
 
-  // リレーション/プロパティの仮設定例
   const relationMappings = {
     TestModel: {
-      relatedItems: "related-items-db-id",
+      relatedItems: "c1234567-89ab-cdef-0123-456789abcdef", // 有効なUUID形式
     },
   };
+
   const propertyMappings = {
     TestModel: {
       titleField: "Title",
       statusField: "Status",
       dateField: "Date",
       relatedItems: "Related Items",
+      numberField: "Number",
+      checkboxField: "Checkbox",
     },
   };
+
   const propertyTypes = {
     TestModel: {
       titleField: NotionPropertyTypes.Title,
       statusField: NotionPropertyTypes.Select,
       dateField: NotionPropertyTypes.Date,
       relatedItems: NotionPropertyTypes.Relation,
+      numberField: NotionPropertyTypes.Number,
+      checkboxField: NotionPropertyTypes.Checkbox,
     },
   };
 
@@ -79,10 +84,9 @@ describe("QueryBuilder", () => {
       .where("titleField", "equals", "Test Page")
       .orderBy("dateField", "descending")
       .limit(10)
-      .after("some-cursor")
+      .after("cursor-1234")
       .execute();
 
-    // 期待するクエリが正しく呼ばれたか
     expect(notionMock.databases.query).toHaveBeenCalledTimes(1);
     const [callArgs] = notionMock.databases.query.mock.calls[0];
     expect(callArgs).toEqual({
@@ -98,10 +102,9 @@ describe("QueryBuilder", () => {
         },
       ],
       page_size: 10,
-      start_cursor: "some-cursor",
+      start_cursor: "cursor-1234",
     });
 
-    // レスポンスのマッピング結果
     expect(result).toEqual([
       {
         id: "page-1",
@@ -158,8 +161,17 @@ describe("QueryBuilder", () => {
       propertyTypes
     );
 
+    const subQb = new QueryBuilder<any>(
+      notionMock,
+      relationMappings.TestModel.relatedItems,
+      "RelatedModel",
+      relationMappings,
+      propertyMappings,
+      propertyTypes
+    );
+
     await qb
-      .whereRelation("relatedItems", (subQb: QueryBuilder<any>) =>
+      .whereRelation("relatedItems", () =>
         subQb.where("titleField", "equals", "SubPage")
       )
       .execute();
@@ -228,7 +240,6 @@ describe("QueryBuilder", () => {
     const result = await qb.include("relatedItems").execute();
 
     expect(notionMock.databases.query).toHaveBeenCalledTimes(1);
-    // relation のページ取得が 2 回呼ばれる
     expect(notionMock.pages.retrieve).toHaveBeenCalledTimes(2);
 
     expect(result).toEqual([
@@ -256,20 +267,6 @@ describe("QueryBuilder", () => {
   });
 
   it("should build filter for number and checkbox properties", async () => {
-    // numberField と checkboxField を追加
-    const extendedPropertyTypes = {
-      TestModel: {
-        numberField: NotionPropertyTypes.Number,
-        checkboxField: NotionPropertyTypes.Checkbox,
-      },
-    };
-    const extendedPropertyMappings = {
-      TestModel: {
-        numberField: "Number",
-        checkboxField: "Checkbox",
-      },
-    };
-
     notionMock.databases.query.mockResolvedValueOnce({ results: [] } as any);
 
     const qb = new QueryBuilder<any>(
@@ -277,14 +274,8 @@ describe("QueryBuilder", () => {
       databaseId,
       modelName,
       relationMappings,
-      {
-        ...propertyMappings,
-        ...extendedPropertyMappings,
-      },
-      {
-        ...propertyTypes,
-        ...extendedPropertyTypes,
-      }
+      propertyMappings,
+      propertyTypes
     );
 
     await qb

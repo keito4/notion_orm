@@ -93,8 +93,14 @@ function mapTypeToNotion(
   if (attributes.includes("@formula")) {
     return NotionPropertyTypes.Formula;
   }
-  if (attributes.includes("@relation") || isArray) {
+  if (attributes.includes("@relation") && isArray) {
     return NotionPropertyTypes.Relation;
+  }
+  if (attributes.includes("@multi_select")) {
+    return NotionPropertyTypes.MultiSelect;
+  }
+  if (attributes.includes("@select")) {
+    return NotionPropertyTypes.Select;
   }
   if (attributes.includes("@people")) {
     return NotionPropertyTypes.People;
