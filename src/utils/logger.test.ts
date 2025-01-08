@@ -16,18 +16,18 @@ declare const process: {
 
 describe("Logger", () => {
   let mockConsole: {
-    log: jest.Mock<unknown>;
-    error: jest.Mock<unknown>;
+    log: jest.SpyInstance;
+    error: jest.SpyInstance;
   };
 
   beforeEach(() => {
     mockConsole = {
       log: jest
         .spyOn(console, "log")
-        .mockImplementation(() => {}) as jest.Mock<unknown>,
+        .mockImplementation(() => {}),
       error: jest
         .spyOn(console, "error")
-        .mockImplementation(() => {}) as jest.Mock<unknown>,
+        .mockImplementation(() => {}),
     };
   });
 
