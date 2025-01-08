@@ -2,24 +2,6 @@ import { writeFileSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { Model, Schema } from "../types";
 import { logger } from "../utils/logger";
-import { NotionClient } from "../notion/client";
-import { NotionPropertyTypes } from "../types/notionTypes";
-
-interface GeneratedModel {
-  model: {
-    name: string;
-    notionDatabaseId: string;
-  };
-  database: {
-    properties: Record<
-      string,
-      {
-        type: NotionPropertyTypes;
-        name: string;
-      }
-    >;
-  };
-}
 
 export async function generateTypeDefinitions(schema: Schema): Promise<void> {
   try {
@@ -46,17 +28,14 @@ function generateModelTypes(models: Model[]): string {
 import { NotionPropertyTypes } from '../types/notionTypes';
 
 ${models
-  .map(
-    (model) => `
+    .map(
+      (model) => `
 export interface ${model.name} {
   id: string;
   ${model.fields
     .map((field) => {
       const typeStr = getPropertyType(field.type);
-      const isOptional = field.optional;
-      return `${sanitizePropertyName(field.name)}${
-        isOptional ? "?" : ""
-      }: ${typeStr};`;
+      return `${sanitizePropertyName(field.name)}${field.optional ? "?" : ""}: ${typeStr};`;
     })
     .join("\n  ")}
   createdTime: string;
@@ -67,16 +46,13 @@ export interface ${model.name}Input {
   ${model.fields
     .map((field) => {
       const typeStr = getPropertyType(field.type);
-      const isOptional = field.optional;
-      return `${sanitizePropertyName(field.name)}${
-        isOptional ? "?" : ""
-      }: ${typeStr};`;
+      return `${sanitizePropertyName(field.name)}${field.optional ? "?" : ""}: ${typeStr};`;
     })
     .join("\n  ")}
 }
 `
-  )
-  .join("\n")}`;
+    )
+    .join("\n")}`;
 }
 
 function generateIndexFile(schema: Schema): string {
@@ -93,9 +69,10 @@ function sanitizePropertyName(name: string): string {
 }
 
 function getPropertyType(type: string): string {
-  switch (type) {
+  switch (type.toLowerCase()) {
     case "title":
     case "rich_text":
+    case "text":
       return "string";
     case "number":
       return "number";
@@ -104,15 +81,20 @@ function getPropertyType(type: string): string {
     case "multi_select":
       return "string[]";
     case "date":
+    case "datetime":
       return "string | null";
     case "checkbox":
+    case "boolean":
       return "boolean";
     case "people":
       return "Array<{ id: string; name: string; avatar_url?: string }>";
     case "relation":
       return "Array<{ id: string }>";
     case "formula":
+    case "rollup":
       return "string";
+    case "files":
+      return "Array<{ name: string; url: string }>";
     default:
       logger.warn(`Unsupported Notion property type: ${type}`);
       return "string";
