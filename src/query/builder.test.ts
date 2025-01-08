@@ -1,9 +1,9 @@
 /**
  * tests/query.test.ts
  */
-import { QueryBuilder } from "../src/query/builder";
-import { Client } from "@notionhq/client";
-import { NotionPropertyTypes } from "../src/types/notionTypes";
+import { QueryBuilder } from "./builder";
+import { NotionPropertyTypes } from "../types/notionTypes";
+import { describe, it, beforeEach, expect, jest } from "@jest/globals";
 
 describe("QueryBuilder", () => {
   let notionMock: any;

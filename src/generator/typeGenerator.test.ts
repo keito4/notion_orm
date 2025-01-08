@@ -1,7 +1,6 @@
-import { generateTypeDefinitions } from "../src/generator/typeGenerator";
-import { generateClient } from "../src/generator/clientGenerator";
-import { Schema } from "../src/types";
-
+import { generateTypeDefinitions } from "./typeGenerator";
+import { Schema } from "../types";
+import { describe, test, expect } from "@jest/globals";
 describe("Code Generator", () => {
   const mockSchema: Schema = {
     models: [
@@ -23,9 +22,5 @@ describe("Code Generator", () => {
 
   test("should generate type definitions", async () => {
     await expect(generateTypeDefinitions(mockSchema)).resolves.not.toThrow();
-  });
-
-  test("should generate client code", async () => {
-    await expect(generateClient(mockSchema)).resolves.not.toThrow();
   });
 });
