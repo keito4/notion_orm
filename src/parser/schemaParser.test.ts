@@ -200,4 +200,56 @@ describe("Schema Parser", () => {
     expect(model.fields[8].type).toBe("relation");
     expect(model.fields[9].type).toBe("formula");
   });
+
+  test("should throw error for invalid field type", () => {
+    const invalidSchema = `
+      model InvalidType @notionDatabase("test") {
+        field InvalidType
+      }
+    `;
+    expect(() => parseSchema(invalidSchema)).toThrowError(/Invalid field type/);
+  });
+
+  test("should throw error for duplicate field names", () => {
+    const invalidSchema = `
+      model DuplicateFields @notionDatabase("test") {
+        field String
+        field Number
+      }
+    `;
+    expect(() => parseSchema(invalidSchema)).toThrowError(
+      /Duplicate field name/
+    );
+  });
+
+  test("should handle all valid attribute combinations", () => {
+    const schema = `
+      model Attributes @notionDatabase("test") {
+        id String @title
+        name String @rich_text
+        count Number @number
+        status String @select
+        tags String[] @multi_select
+        date DateTime @date
+        done Boolean @checkbox
+        owner String @people
+        related String[] @relation
+        computed String @formula
+      }
+    `;
+    const result = parseSchema(schema);
+    const model = result.models[0];
+
+    expect(model.fields).toHaveLength(10);
+    expect(model.fields[0].type).toBe("title");
+    expect(model.fields[1].type).toBe("rich_text");
+    expect(model.fields[2].type).toBe("number");
+    expect(model.fields[3].type).toBe("select");
+    expect(model.fields[4].type).toBe("multi_select");
+    expect(model.fields[5].type).toBe("date");
+    expect(model.fields[6].type).toBe("checkbox");
+    expect(model.fields[7].type).toBe("people");
+    expect(model.fields[8].type).toBe("relation");
+    expect(model.fields[9].type).toBe("formula");
+  });
 });

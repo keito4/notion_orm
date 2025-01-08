@@ -35,6 +35,19 @@ function formatMessage(level: LogLevel, message: string): string {
   return `${color}${symbols[level]}${colors.reset} [${timestamp}] ${color}${message}${colors.reset}`;
 }
 
+function formatError(error: unknown): string {
+  if (error instanceof Error) {
+    const errorDetails = [
+      `Error: ${error.message}`,
+      error.stack ? `Stack trace:\n${error.stack}` : '',
+      error.cause ? `Caused by: ${error.cause}` : ''
+    ].filter(Boolean).join('\n');
+    return `${colors.red}${errorDetails}${colors.reset}`;
+  }
+
+  return `${colors.red}Error details: ${String(error)}${colors.reset}`;
+}
+
 export const logger = {
   debug: (message: string, ...args: LogArgs): void => {
     if (process.env.DEBUG) {
@@ -48,13 +61,8 @@ export const logger = {
 
   error: (message: string, error?: unknown): void => {
     console.error(formatMessage("error", message));
-    if (error instanceof Error) {
-      console.error(`${colors.red}Stack trace:${colors.reset}`);
-      console.error(`${colors.red}${error.stack}${colors.reset}`);
-    } else if (error) {
-      console.error(
-        `${colors.red}Error details: ${String(error)}${colors.reset}`
-      );
+    if (error !== undefined) {
+      console.error(formatError(error));
     }
   },
 

@@ -6,42 +6,32 @@ channel = "stable-24_05"
 [workflows]
 runButton = "Project"
 
+# -------------------------------------------------------------------
+# 1. 「Project」というワークフロー（例: pnpm run generate）
+# -------------------------------------------------------------------
 [[workflows.workflow]]
 name = "Project"
+author = "agent"
 mode = "parallel"
-author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm run generate"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "CLI Tool"
+args = "Test"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Build CLI"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Test Runner"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Test Query Builder"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Test Relations"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Test Domain-Document Relations"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Test UUID Features"
-
+# -------------------------------------------------------------------
+# 2. 「Test」というワークフロー（例: pnpm run test）
+# -------------------------------------------------------------------
 [[workflows.workflow]]
-name = "CLI Tool"
+name = "Test"
 author = "agent"
+mode = "sequential"
 
 [workflows.workflow.metadata]
 agentRequireRestartOnSave = false
@@ -51,91 +41,37 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "ts-node src/cli.ts generate"
+args = "pnpm run test"
 
+# -------------------------------------------------------------------
+# 3. 「Lint」というワークフロー（例: pnpm run lint）
+# -------------------------------------------------------------------
 [[workflows.workflow]]
-name = "Build CLI"
+name = "Lint"
 author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
+mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
+args = "pnpm run lint"
 task = "shell.exec"
-args = "tsc && chmod +x dist/index.js"
 
+# -------------------------------------------------------------------
+# 4. 「Build」というワークフロー（例: pnpm exec tsc）
+# -------------------------------------------------------------------
 [[workflows.workflow]]
-name = "Test Runner"
+name = "Build"
 author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
+mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
+args = "pnpm exec tsc"
 task = "shell.exec"
-args = "jest --verbose tests/notion-connection.test.ts"
-
-[[workflows.workflow]]
-name = "Test Query Builder"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "packager.installForAll"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "ts-node examples/test.ts"
-
-[[workflows.workflow]]
-name = "Test Relations"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "packager.installForAll"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "ts-node examples/task-relation-test.ts"
-
-[[workflows.workflow]]
-name = "Test Domain-Document Relations"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "packager.installForAll"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "DEBUG=true ts-node examples/domain-document-test.ts"
-
-[[workflows.workflow]]
-name = "Test UUID Features"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "packager.installForAll"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "DEBUG=true ts-node examples/uuid-test.ts"
 
 [deployment]
-run = ["sh", "-c", "ts-node src/cli.ts generate"]
+run = ["sh", "-c", "pnpm run test"]

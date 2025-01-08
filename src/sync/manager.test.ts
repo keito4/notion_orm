@@ -197,3 +197,60 @@ describe("Notion Connection", () => {
     ).rejects.toHaveProperty("status", 401);
   });
 });
+
+describe("Notion Connection", () => {
+  let mockNotionClient: jest.Mocked<NotionClient>;
+  let syncManager: SyncManager;
+
+  beforeEach(() => {
+    process.env.NOTION_API_KEY = "test-api-key";
+    jest.clearAllMocks();
+  });
+
+  test("should successfully connect to Notion API", async () => {
+    const response = await mockClient.users.list();
+    expect(response).toEqual(mockListResponse);
+    expect(mockClient.users.list).toHaveBeenCalledTimes(1);
+  });
+
+  test("should validate schema with multiple models", async () => {
+    const schema: Schema = {
+      models: [
+        {
+          name: "Document",
+          fields: [],
+          notionDatabaseId: "valid-database-id-1",
+        },
+        {
+          name: "Domain",
+          fields: [],
+          notionDatabaseId: "valid-database-id-2",
+        },
+      ],
+    };
+
+    const response = await mockClient.databases.retrieve({
+      database_id: "valid-database-id-1",
+    });
+    expect(response).toEqual(mockDatabaseResponse);
+    expect(mockClient.databases.retrieve).toHaveBeenCalledTimes(1);
+  });
+
+  test("should throw error for invalid database ID", async () => {
+    await expect(
+      mockClient.databases.retrieve({ database_id: "invalid-id" })
+    ).rejects.toHaveProperty("code", "invalid_request_url");
+    await expect(
+      mockClient.databases.retrieve({ database_id: "invalid-id" })
+    ).rejects.toHaveProperty("status", 400);
+  });
+
+  test("should throw error for unauthorized access", async () => {
+    await expect(
+      mockClient.databases.retrieve({ database_id: "unauthorized-id" })
+    ).rejects.toHaveProperty("code", "unauthorized");
+    await expect(
+      mockClient.databases.retrieve({ database_id: "unauthorized-id" })
+    ).rejects.toHaveProperty("status", 401);
+  });
+});
