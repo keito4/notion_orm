@@ -122,8 +122,7 @@ function generateClientCode(schema: Schema): string {
 
   return `
 import { Client } from "@notionhq/client";
-import { NotionPropertyTypes } from "notionmodelsync";
-import { QueryBuilder } from "../src/query/builder";
+import { NotionPropertyTypes, QueryBuilder } from "notionmodelsync";
 import { ${schema.models
     .map((m) => m.name)
     .join(", ")} } from "./${typeFile.replace(/\.ts$/, "")}";

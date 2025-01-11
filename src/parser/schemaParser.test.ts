@@ -20,15 +20,15 @@ describe("Schema Parser", () => {
 
     const [nameField, ageField, isActiveField] = userModel.fields;
     expect(nameField.name).toBe("name");
-    expect(nameField.type).toBe("rich_text");
+    expect(nameField.notionType).toBe("rich_text");
     expect(nameField.optional).toBe(false);
 
     expect(ageField.name).toBe("age");
-    expect(ageField.type).toBe("number");
+    expect(ageField.notionType).toBe("number");
     expect(ageField.optional).toBe(true);
 
     expect(isActiveField.name).toBe("isActive");
-    expect(isActiveField.type).toBe("checkbox");
+    expect(isActiveField.notionType).toBe("checkbox");
     expect(isActiveField.optional).toBe(false);
   });
 
@@ -69,11 +69,11 @@ describe("Schema Parser", () => {
 
     const [todoField, descField] = todoModel.fields;
     expect(todoField.name).toBe("やること");
-    expect(todoField.type).toBe("rich_text");
+    expect(todoField.notionType).toBe("rich_text");
     expect(todoField.optional).toBe(false);
 
     expect(descField.name).toBe("説明");
-    expect(descField.type).toBe("rich_text");
+    expect(descField.notionType).toBe("rich_text");
     expect(descField.optional).toBe(true);
   });
 
@@ -95,16 +95,16 @@ describe("Schema Parser", () => {
 
     const [idField, tagsField, assigneesField] = taskModel.fields;
     expect(idField.name).toBe("id");
-    expect(idField.type).toBe("title");
+    expect(idField.notionType).toBe("title");
     expect(idField.optional).toBe(false);
 
     expect(tagsField.name).toBe("tags");
-    expect(tagsField.type).toBe("multi_select");
+    expect(tagsField.notionType).toBe("multi_select");
     expect(tagsField.optional).toBe(false);
 
     expect(assigneesField.name).toBe("assignees");
     expect(assigneesField.notionName).toBe("担当者");
-    expect(assigneesField.type).toBe("relation");
+    expect(assigneesField.notionType).toBe("relation");
     expect(assigneesField.optional).toBe(false);
   });
 
@@ -127,14 +127,14 @@ describe("Schema Parser", () => {
     expect(modelA.notionDatabaseId).toBe("aaa");
     expect(modelA.fields).toHaveLength(1);
     expect(modelA.fields[0].name).toBe("fieldA");
-    expect(modelA.fields[0].type).toBe("rich_text");
+    expect(modelA.fields[0].notionType).toBe("rich_text");
     expect(modelA.fields[0].optional).toBe(false);
 
     expect(modelB.name).toBe("ModelB");
     expect(modelB.notionDatabaseId).toBe("bbb");
     expect(modelB.fields).toHaveLength(1);
     expect(modelB.fields[0].name).toBe("fieldB");
-    expect(modelB.fields[0].type).toBe("checkbox");
+    expect(modelB.fields[0].notionType).toBe("checkbox");
     expect(modelB.fields[0].optional).toBe(true);
   });
 
@@ -189,15 +189,15 @@ describe("Schema Parser", () => {
     const model = result.models[0];
 
     expect(model.fields).toHaveLength(10);
-    expect(model.fields[0].type).toBe("title");
-    expect(model.fields[1].type).toBe("rich_text");
-    expect(model.fields[2].type).toBe("number");
-    expect(model.fields[3].type).toBe("select");
-    expect(model.fields[4].type).toBe("multi_select");
-    expect(model.fields[5].type).toBe("date");
-    expect(model.fields[6].type).toBe("checkbox");
-    expect(model.fields[7].type).toBe("people");
-    expect(model.fields[8].type).toBe("relation");
-    expect(model.fields[9].type).toBe("formula");
+    expect(model.fields[0].notionType).toBe("title");
+    expect(model.fields[1].notionType).toBe("rich_text");
+    expect(model.fields[2].notionType).toBe("number");
+    expect(model.fields[3].notionType).toBe("select");
+    expect(model.fields[4].notionType).toBe("multi_select");
+    expect(model.fields[5].notionType).toBe("date");
+    expect(model.fields[6].notionType).toBe("checkbox");
+    expect(model.fields[7].notionType).toBe("people");
+    expect(model.fields[8].notionType).toBe("relation");
+    expect(model.fields[9].notionType).toBe("formula");
   });
 });
