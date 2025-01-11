@@ -9,7 +9,7 @@ model Objective @notionDatabase("aac810fcb3414dbb9c46ce485bc6449b") {
   name              String    @title @map("Name")
   completed         Boolean?  @checkbox @map("完了")
   emphasized        Boolean?  @checkbox @map("注力")
-  subItem           String[]  @relation @map("Sub-item")
+  subItem           Objective[]  @relation @map("Sub-item")
   similarPage       String[]  @relation @map("似てるページ")
   date              String?   @date @map("日付")
   manager           Json?     @people @map("責任者")
@@ -17,7 +17,7 @@ model Objective @notionDatabase("aac810fcb3414dbb9c46ce485bc6449b") {
   oykotTimeline     String[]  @relation @map("OYKOT Timeline")
   action            String[]  @relation @map("Action")
   objectiveProgress String?   @formula @map("Objective進行度")
-  parentItem        String[]  @relation @map("Parent item")
+  parentItem        Objective[]  @relation @map("Parent item")
   actionProgress    String?   @formula @map("Action進行度")
 }
 

@@ -1,142 +1,270 @@
-// generateClient.ts
-
 import { writeFileSync, mkdirSync } from "fs";
-import { resolve, dirname } from "path";
-import { Schema } from "../types";
+import { resolve } from "path";
+import { Model, Schema, Field } from "../types";
 import { logger } from "../utils/logger";
+import { NotionPropertyTypes } from "notionmodelsync";
 
-/**
- * この関数は:
- * - 各モデルの設定ファイルを `generated/models/ModelName.ts` に出力
- * - `generated/client.ts` を作成し、そこからモデル設定をインポートして
- *   QueryBuilder を初期化するコードを生成
- */
 export async function generateClient(schema: Schema): Promise<void> {
   try {
-    const outputDir = schema.output?.directory || "./generated";
-    const clientFile = schema.output?.clientFile || "client.ts";
-    const modelsDir = resolve(outputDir, "models");
-    mkdirSync(modelsDir, { recursive: true }); // modelsフォルダを作成
-
-    // ① 各モデル設定ファイルを出力
+    if (!schema.models || !Array.isArray(schema.models)) {
+      throw new Error("Invalid schema: models array is required");
+    }
     for (const model of schema.models) {
-      const filePath = resolve(modelsDir, `${model.name}.ts`);
-      const modelSettingsCode = generateModelSettingsFile(model);
-      writeFileSync(filePath, modelSettingsCode);
-      logger.info(`Generated model settings for ${model.name}: ${filePath}`);
+      if (!model.fields || !Array.isArray(model.fields)) {
+        throw new Error("Invalid schema: model fields are required");
+      }
     }
 
-    // ② client.ts を生成
-    const clientCode = generateClientFile(schema);
-    const outputPath = resolve(outputDir, clientFile);
-    mkdirSync(dirname(outputPath), { recursive: true });
-    writeFileSync(outputPath, clientCode);
+    const outputDir = schema.output?.directory || "./generated";
+    const clientFile = schema.output?.clientFile || "client.ts";
+    const typeFile = schema.output?.typeDefinitionFile || "types.ts";
 
-    logger.info(`Generated client code in ${outputPath}`);
+    mkdirSync(outputDir, { recursive: true });
+
+    const typeDefinitions = generateTypeDefinitions(schema);
+    const typesPath = resolve(outputDir, typeFile);
+    writeFileSync(typesPath, typeDefinitions);
+
+    const clientCode = generateClientCode(schema);
+    const clientPath = resolve(outputDir, clientFile);
+    writeFileSync(clientPath, clientCode);
+
+    generateModelSettingsFiles(schema, outputDir);
+
+    logger.info(`Generated client code in ${clientPath}`);
   } catch (error) {
     logger.error("Error generating client:", error);
     throw error;
   }
 }
 
-/**
- * 各モデル設定ファイルのコードを生成
- */
-function generateModelSettingsFile(model: any): string {
-  // model.fields から "TypeScriptフィールド名" "Notionプロパティ名" "Notionプロパティタイプ" を設定
-  // ここでは簡単に "notionName" があればそれを使い、なければ field.name を使う例にします。
-  // type も仮で field.type を NotionPropertyTypes.xxx に直接変換するとします。
-  // 実運用ではもっと精緻なマッピングが必要かもしれません。
-
-  const propertyMappings: Record<string, string> = {};
-  const propertyTypes: Record<string, string> = {};
-
-  for (const field of model.fields) {
-    const notionName = field.notionName || field.name;
-    propertyMappings[field.name] = notionName;
-
-    // Prisma type → NotionPropertyTypes の仮マッピング
-    // ここでは既存の "field.type" をそのまま使う
-    propertyTypes[field.name] = field.type;
-  }
-
-  // JSON文字列化
-  const mappingsStr = JSON.stringify(propertyMappings, null, 2);
-  const typesStr = JSON.stringify(propertyTypes, null, 2);
-
-  return `import { NotionPropertyTypes } from "../../src/types/notionTypes";
-
-export const ${model.name}ModelSettings = {
-  notionDatabaseId: "${model.notionDatabaseId}",
-  propertyMappings: ${mappingsStr},
-  propertyTypes: {
-    ${getNotionPropertyTypes(propertyTypes)}
-  }
-};
-`;
-}
-
-function getNotionPropertyTypes(propertyTypes: Record<string, string>): string {
-  return Object.entries(propertyTypes)
-    .map(([key, value]) => `${key}: ${toNotionPropertyTypes(value)}`)
-    .join(",\n    ");
-}
-
-function toNotionPropertyTypes(str: string): string {
-  // rich_text -> RichText
-  return (
-    "NotionPropertyTypes." +
-    str.replace(/^([a-z])|_([a-z])/g, (match, p1, p2) =>
-      (p1 || p2).toUpperCase()
-    )
-  );
-}
-
-/**
- * `generated/client.ts` のコード生成
- */
-function generateClientFile(schema: Schema): string {
-  // modelsフォルダのファイルをインポートしてQueryBuilderに流す
-  // 例: import { ObjectiveModelSettings } from "./models/Objective";
-  const importLines = schema.models
-    .map((m) => `import { ${m.name}ModelSettings } from "./models/${m.name}";`)
-    .join("\n");
-
-  // query${Model}() メソッドの実装を作る
-  const queryMethods = schema.models
-    .map((model) => {
-      return `
-  query${model.name}s(): QueryBuilder<${model.name}> {
-    return new QueryBuilder<${model.name}>(
-      this.notion,
-      ${model.name}ModelSettings.notionDatabaseId,
-      "${model.name}",
-      {},
-      { "${model.name}": ${model.name}ModelSettings.propertyMappings },
-      { "${model.name}": ${model.name}ModelSettings.propertyTypes }
-    );
-  }
-`;
+function generateTypeDefinitions(schema: Schema): string {
+  return `
+import { NotionPropertyTypes } from "notionmodelsync";
+${schema.models
+  .map(
+    (model) => `
+export interface ${model.name} {
+  id: string;
+  ${model.fields
+    .map((field) => {
+      const typeStr = getFieldTsType(field, schema);
+      return `${field.name}${field.optional ? "?" : ""}: ${typeStr};`;
     })
+    .join("\n  ")}
+  createdTime: string;
+  lastEditedTime: string;
+}
+
+export interface ${model.name}Input {
+  ${model.fields
+    .map((field) => {
+      const typeStr = getFieldTsType(field, schema);
+      return `${field.name}${field.optional ? "?" : ""}: ${typeStr};`;
+    })
+    .join("\n  ")}
+}
+`
+  )
+  .join("\n")}
+`.trim();
+}
+
+function getFieldTsType(field: Field, schema: Schema): string {
+  const modelNames = schema.models.map((m) => m.name);
+  let baseType = field.type;
+  if (modelNames.includes(field.type)) {
+    baseType = field.type;
+  } else {
+    switch (field.type) {
+      case "String":
+        baseType = "string";
+        break;
+      case "Boolean":
+        baseType = "boolean";
+        break;
+      case "Number":
+        baseType = "number";
+        break;
+      case "Json":
+        baseType = "any";
+        break;
+      case "DateTime":
+        baseType = "string";
+        break;
+      default:
+        baseType = "string";
+        break;
+    }
+  }
+  if (field.isArray) {
+    baseType += "[]";
+  }
+  return baseType;
+}
+
+function generateClientCode(schema: Schema): string {
+  const typeFile = schema.output?.typeDefinitionFile || "types.ts";
+  const importsForModels = schema.models
+    .map(
+      (m) =>
+        `import { ${m.name}ModelSettings } from "./models/${m.name}ModelSettings";`
+    )
     .join("\n");
+
+  const relationMappings = buildRelationMappings(schema);
+  const relationMappingsString = objectToTsLiteral(relationMappings);
+
+  const relationModels = buildRelationModels(schema);
+  const relationModelsString = objectToTsLiteral(relationModels);
 
   return `
 import { Client } from "@notionhq/client";
 import { QueryBuilder } from "../src/query/builder";
-import { ${schema.models.map((m) => m.name).join(", ")} } from "./${
-    schema.output?.typeDefinitionFile?.replace(/\.ts$/, "") || "types"
-  }";
-
-${importLines}
+import { ${schema.models
+    .map((m) => m.name)
+    .join(", ")} } from "./${typeFile.replace(/\.ts$/, "")}";
+${importsForModels}
 
 export class NotionOrmClient {
   private notion: Client;
+  private relationMappings: Record<string, Record<string, string>> = ${relationMappingsString};
+  private relationModels: Record<string, Record<string, string>> = ${relationModelsString};
 
   constructor(apiKey: string) {
     this.notion = new Client({ auth: apiKey });
   }
 
-  ${queryMethods}
-}
+  ${schema.models
+    .map((model) => {
+      return `
+  query${model.name}(): QueryBuilder<${model.name}> {
+    return new QueryBuilder<${model.name}>(
+      this.notion,
+      "${model.notionDatabaseId}",
+      "${model.name}",
+      this.relationMappings,
+      { ${model.name}: ${model.name}ModelSettings.propertyMappings },
+      { ${model.name}: ${model.name}ModelSettings.propertyTypes },
+      this.relationModels
+    );
+  }
 `;
+    })
+    .join("\n")}
+}
+`.trim();
+}
+
+function buildRelationMappings(
+  schema: Schema
+): Record<string, Record<string, string>> {
+  const result: Record<string, Record<string, string>> = {};
+  for (const model of schema.models) {
+    result[model.name] = {};
+    const relationFields = model.fields.filter(
+      (f) => f.notionType.toLowerCase() === "relation"
+    );
+    for (const field of relationFields) {
+      const relatedModel = findRelatedModel(schema, field.type);
+      if (relatedModel) {
+        result[model.name][field.name] = relatedModel.notionDatabaseId;
+      }
+    }
+  }
+  return result;
+}
+
+function buildRelationModels(
+  schema: Schema
+): Record<string, Record<string, string>> {
+  const result: Record<string, Record<string, string>> = {};
+  for (const model of schema.models) {
+    result[model.name] = {};
+    const relationFields = model.fields.filter(
+      (f) => f.notionType.toLowerCase() === "relation"
+    );
+    for (const field of relationFields) {
+      const relatedModel = findRelatedModel(schema, field.type);
+      if (relatedModel) {
+        result[model.name][field.name] = relatedModel.name;
+      }
+    }
+  }
+  return result;
+}
+
+function findRelatedModel(schema: Schema, typeName: string): Model | undefined {
+  return schema.models.find((m) => m.name === typeName);
+}
+
+function objectToTsLiteral(obj: any): string {
+  return JSON.stringify(obj, null, 2);
+}
+
+function generateModelSettingsFiles(schema: Schema, outputDir: string): void {
+  const modelsDir = resolve(outputDir, "models");
+  mkdirSync(modelsDir, { recursive: true });
+  for (const model of schema.models) {
+    const settingsCode = generateModelSettingsCode(model);
+    const fileName = `${model.name}ModelSettings.ts`;
+    const filePath = resolve(modelsDir, fileName);
+    writeFileSync(filePath, settingsCode);
+  }
+}
+
+function generateModelSettingsCode(model: Model): string {
+  return `
+import { NotionPropertyTypes } from "notionmodelsync";
+
+export const ${model.name}ModelSettings = {
+  notionDatabaseId: "${model.notionDatabaseId}",
+  propertyMappings: {
+    ${model.fields
+      .map((field) => `${field.name}: "${field.notionName}"`)
+      .join(",\n    ")}
+  },
+  propertyTypes: {
+    ${model.fields
+      .map(
+        (field) => `${field.name}: ${getNotionPropertyEnum(field.notionType)}`
+      )
+      .join(",\n    ")}
+  },
+};
+`.trim();
+}
+
+function getNotionPropertyEnum(type: string): string {
+  switch (type.toLowerCase()) {
+    case "title":
+      return "NotionPropertyTypes.Title";
+    case "rich_text":
+    case "text":
+      return "NotionPropertyTypes.RichText";
+    case "select":
+      return "NotionPropertyTypes.Select";
+    case "number":
+      return "NotionPropertyTypes.Number";
+    case "multi_select":
+      return "NotionPropertyTypes.MultiSelect";
+    case "date":
+    case "datetime":
+      return "NotionPropertyTypes.Date";
+    case "checkbox":
+    case "boolean":
+      return "NotionPropertyTypes.Checkbox";
+    case "people":
+      return "NotionPropertyTypes.People";
+    case "relation":
+      return "NotionPropertyTypes.Relation";
+    case "formula":
+      return "NotionPropertyTypes.Formula";
+    case "rollup":
+      return "NotionPropertyTypes.Rollup";
+    case "files":
+      return "NotionPropertyTypes.Files";
+    default:
+      return "NotionPropertyTypes.RichText";
+  }
 }

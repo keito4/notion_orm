@@ -17,8 +17,10 @@ export interface Model {
 
 export interface Field {
   name: string;
+  notionName?: string;
   type: string;
+  notionType: string;
+  isArray: boolean;
   optional: boolean;
   attributes: string[];
-  notionName?: string;
 }

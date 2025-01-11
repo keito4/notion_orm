@@ -1,4 +1,4 @@
-import { Schema, Model } from "../types";
+import { Schema, Model, Field } from "../types";
 import { NotionPropertyTypes } from "../types/notionTypes";
 import { logger } from "../utils/logger";
 
@@ -12,6 +12,7 @@ export function parseSchema(content: string): Schema {
     const models: Model[] = [];
     let currentModel: Model | null = null;
     let inModelBlock = false;
+    const fieldNames = new Set<string>();
 
     for (const line of lines) {
       if (line.startsWith("model")) {
@@ -27,8 +28,10 @@ export function parseSchema(content: string): Schema {
           notionDatabaseId: modelMatch[2],
         };
         inModelBlock = true;
+        fieldNames.clear();
         continue;
       }
+
       if (line === "}" && inModelBlock) {
         if (currentModel) {
           models.push(currentModel);
@@ -37,35 +40,54 @@ export function parseSchema(content: string): Schema {
         inModelBlock = false;
         continue;
       }
+
       if (inModelBlock && currentModel) {
         const fieldMatch = line.match(
           /^(?:"([^"]+)"|(\w+))\s+(\w+)(\[\])?(\?)?\s*((?:@\w+(?:\([^)]*\))?\s*)*)/
         );
         if (fieldMatch) {
           const originalName = fieldMatch[1] || fieldMatch[2];
-          const type = fieldMatch[3];
-          const isArray = fieldMatch[4];
-          const optional = fieldMatch[5];
+          const userType = fieldMatch[3];
+          const isArray = !!fieldMatch[4];
+          const optional = !!fieldMatch[5];
           const attributesStr = fieldMatch[6] || "";
           const attributes = attributesStr.match(/@\w+(?:\([^)]*\))?/g) || [];
+
+          if (fieldNames.has(originalName)) {
+            throw new Error(`Duplicate field name: ${originalName}`);
+          }
+          fieldNames.add(originalName);
+
           const mapMatch = attributes
             .find((attr) => attr.startsWith("@map("))
             ?.match(/@map\(([^)]+)\)/);
           const mappedName = mapMatch
             ? mapMatch[1].replace(/["']/g, "")
             : originalName;
+
           logger.info(`Field "${originalName}" mapped to "${mappedName}"`);
-          const notionType = mapTypeToNotion(type, isArray, attributes);
-          currentModel.fields.push({
+
+          const notionPropertyType = mapTypeToNotion(
+            userType,
+            isArray,
+            attributes
+          );
+
+          const field: Field = {
             name: originalName,
             notionName: mappedName,
-            type: notionType,
-            optional: Boolean(optional),
+            type: userType,
+            notionType: notionPropertyType,
+            isArray: isArray,
+            optional: optional,
             attributes,
-          });
+          };
+
+          currentModel.fields.push(field);
         }
       }
     }
+
     if (currentModel && inModelBlock) {
       models.push(currentModel);
     }
@@ -81,7 +103,7 @@ export function parseSchema(content: string): Schema {
 
 function mapTypeToNotion(
   type: string,
-  isArray: string | undefined,
+  isArray: boolean,
   attributes: string[]
 ): string {
   if (attributes.includes("@title")) {
@@ -93,7 +115,7 @@ function mapTypeToNotion(
   if (attributes.includes("@formula")) {
     return NotionPropertyTypes.Formula;
   }
-  if (attributes.includes("@relation") && isArray) {
+  if (attributes.includes("@relation")) {
     return NotionPropertyTypes.Relation;
   }
   if (attributes.includes("@multi_select")) {
@@ -108,12 +130,28 @@ function mapTypeToNotion(
   if (attributes.includes("@date")) {
     return NotionPropertyTypes.Date;
   }
+  if (attributes.includes("@rich_text")) {
+    return NotionPropertyTypes.RichText;
+  }
+  if (attributes.includes("@number")) {
+    return NotionPropertyTypes.Number;
+  }
+
+  if (isArray) {
+    if (type === "String") {
+      return NotionPropertyTypes.MultiSelect;
+    }
+    return NotionPropertyTypes.Relation;
+  }
+
   const typeMap: Record<string, NotionPropertyTypes> = {
     String: NotionPropertyTypes.RichText,
     Number: NotionPropertyTypes.Number,
     Boolean: NotionPropertyTypes.Checkbox,
+    DateTime: NotionPropertyTypes.Date,
     Json: NotionPropertyTypes.RichText,
   };
+
   const mappedType = typeMap[type];
   if (!mappedType) {
     logger.warn(`Unknown type mapping for: ${type}, using RichText as default`);
