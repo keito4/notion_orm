@@ -26,7 +26,6 @@ export async function generateTypes(): Promise<void> {
     await syncManager.validateAndSync(schema);
 
     logger.info("Generating TypeScript type definitions...");
-    console.log(JSON.stringify(schema, null, 2));
     await generateTypeDefinitions(schema);
 
     logger.info("Generating client code...");

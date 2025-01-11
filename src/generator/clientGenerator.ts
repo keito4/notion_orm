@@ -2,7 +2,6 @@ import { writeFileSync, mkdirSync } from "fs";
 import { resolve } from "path";
 import { Model, Schema, Field } from "../types";
 import { logger } from "../utils/logger";
-import { NotionPropertyTypes } from "notionmodelsync";
 
 export async function generateClient(schema: Schema): Promise<void> {
   try {
@@ -118,8 +117,12 @@ function generateClientCode(schema: Schema): string {
   const relationModels = buildRelationModels(schema);
   const relationModelsString = objectToTsLiteral(relationModels);
 
+  const propertyMappingsString = buildPropertyMappingsString(schema);
+  const propertyTypesString = buildPropertyTypesString(schema);
+
   return `
 import { Client } from "@notionhq/client";
+import { NotionPropertyTypes } from "notionmodelsync";
 import { QueryBuilder } from "../src/query/builder";
 import { ${schema.models
     .map((m) => m.name)
@@ -130,6 +133,8 @@ export class NotionOrmClient {
   private notion: Client;
   private relationMappings: Record<string, Record<string, string>> = ${relationMappingsString};
   private relationModels: Record<string, Record<string, string>> = ${relationModelsString};
+  private propertyMappings: Record<string, Record<string, string>> = ${propertyMappingsString};
+  private propertyTypes: Record<string, Record<string, NotionPropertyTypes>> = ${propertyTypesString};
 
   constructor(apiKey: string) {
     this.notion = new Client({ auth: apiKey });
@@ -144,8 +149,8 @@ export class NotionOrmClient {
       "${model.notionDatabaseId}",
       "${model.name}",
       this.relationMappings,
-      { ${model.name}: ${model.name}ModelSettings.propertyMappings },
-      { ${model.name}: ${model.name}ModelSettings.propertyTypes },
+      this.propertyMappings,
+      this.propertyTypes,
       this.relationModels
     );
   }
@@ -191,6 +196,24 @@ function buildRelationModels(
       }
     }
   }
+  return result;
+}
+
+function buildPropertyMappingsString(schema: Schema): string {
+  let result = "{\n";
+  for (const model of schema.models) {
+    result += `  "${model.name}": ${model.name}ModelSettings.propertyMappings,\n`;
+  }
+  result += "}";
+  return result;
+}
+
+function buildPropertyTypesString(schema: Schema): string {
+  let result = "{\n";
+  for (const model of schema.models) {
+    result += `  "${model.name}": ${model.name}ModelSettings.propertyTypes,\n`;
+  }
+  result += "}";
   return result;
 }
 

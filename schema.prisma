@@ -5,33 +5,61 @@ generator client {
   client   = "notionClient.ts"
 }
 
+model Action @notionDatabase("398ed17368ec497e9638af2c4d53bec9") {
+  name       String       @title      @map("アクション")
+  manager    Json         @people     @map("担当者")
+  completed  Boolean      @checkbox   @map("完了")
+
+  objective  Objective[]  @relation   @map("Objective")
+  dayOfWeek  String[]     @multiSelect @map("曜日")
+  date       DateTime?    @date       @map("Date")
+  connection String[]     @multiSelect @map("連携先")
+  timeline   Timeline[]   @relation   @map("Timeline")
+  output     String       @richText   @map("アウトプット")
+}
+
 model Objective @notionDatabase("aac810fcb3414dbb9c46ce485bc6449b") {
-  name              String    @title @map("Name")
-  completed         Boolean?  @checkbox @map("完了")
-  emphasized        Boolean?  @checkbox @map("注力")
-  subItem           Objective[]  @relation @map("Sub-item")
-  similarPage       String[]  @relation @map("似てるページ")
-  date              String?   @date @map("日付")
-  manager           Json?     @people @map("責任者")
-  archived          Boolean?  @checkbox @map("アーカイブ")
-  oykotTimeline     String[]  @relation @map("OYKOT Timeline")
-  action            String[]  @relation @map("Action")
-  objectiveProgress String?   @formula @map("Objective進行度")
-  parentItem        Objective[]  @relation @map("Parent item")
-  actionProgress    String?   @formula @map("Action進行度")
+  name              String      @title     @map("Name")
+  completed         Boolean?    @checkbox  @map("完了")
+  emphasized        Boolean?    @checkbox  @map("注力")
+  subItem           Objective[] @relation  @map("Sub-item")
+  similarPage       String[]    @relation  @map("似てるページ")
+  date              String?     @date      @map("日付")
+  manager           Json?       @people    @map("責任者")
+  archived          Boolean?    @checkbox  @map("アーカイブ")
+  oykotTimeline     String[]    @relation  @map("OYKOT Timeline")
+  action            String[]    @relation  @map("Action")
+  objectiveProgress String?     @formula   @map("Objective進行度")
+  parentItem        Objective[] @relation  @map("Parent item")
+  actionProgress    String?     @formula   @map("Action進行度")
 }
 
 model Document @notionDatabase("13f70a52207f80d58f64cdc627123f87") {
-  title       String    @title @map("Title")
-  content     String?   @richText @map("Content")
-  status      String    @select @map("Status")
-  domain      Domain[]  @relation @map("Domain")
-  tags        String[]  @multiSelect @map("Tags")
+  name             String      @title        @map("Name")
+  domain           Domain[]    @relation     @map("Domain")
+  subDomainCand?   String[]    @multiSelect  @map("サブドメイン候補")
+  createdAt?       DateTime?   @createdTime  @map("作成日時")
+  createdBy?       Json?       @createdBy    @map("作成者")
 }
 
 model Domain @notionDatabase("f6e300b8598e42208a2c163444655842") {
-  name        String     @title @map("Name")
-  description String?    @richText @map("Description")
-  isActive    Boolean    @checkbox @map("Is Active")
-  documents   Document[] @relation @map("Documents")
+  name             String        @title     @map("Name")
+  description?     String        @richText  @map("description")  // Notion がすでに小文字の "description"
+  archive?         Boolean       @checkbox  @map("Archive")
+  person?          Json          @people    @map("Person")
+
+  domainParent?    Domain[]      @relation  @map("Domainとのリレーション（Parent item）")
+  parentItem?      Domain[]      @relation  @map("Parent item")
+  documents?       Document[]    @relation  @map("🏖️ 議事録")
+}
+
+
+model Timeline @notionDatabase("353adc9979f641559ae12fb91660beeb") {
+  name        String       @title     @map("Name")
+  subItem     Timeline[]   @relation  @map("Sub-item")
+  objective   Objective[]  @relation  @map("OYKOT OKR")
+  kpt?        String[]     @relation  @map("OYKOT KPT")
+  actions?    Action[]     @relation  @map("OYKOT Action")
+  display?    Boolean      @checkbox  @map("表示用")
+  parentItem? Timeline[]   @relation  @map("Parent item")
 }
