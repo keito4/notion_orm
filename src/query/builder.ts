@@ -581,8 +581,8 @@ export class QueryBuilder<T> {
     const props = page.properties;
     const mapped = {
       id: page.id,
-      ...Object.entries(props).reduce((acc: any, [key, propVal]) => {
-        acc[key] = this.mapPropertyValue(propVal);
+      ...Object.entries(props).reduce((acc: any, [notionKey, propVal]) => {
+        acc[this.getFieldName(notionKey)] = this.mapPropertyValue(propVal);
         return acc;
       }, {}),
       createdTime: page.created_time,
