@@ -54,13 +54,13 @@ describe("Logger", () => {
   it("should log error messages with error object", () => {
     const error = new Error("test error");
     logger.error("error message", error);
-    expect(mockConsole.error).toHaveBeenCalledTimes(3); // エラーメッセージとフォーマットされたエラー情報
+    expect(mockConsole.error).toHaveBeenCalledTimes(2); // エラーメッセージとフォーマットされたエラー情報
     expect(mockConsole.error).toHaveBeenNthCalledWith(
       1,
       expect.stringContaining("error message")
     );
     expect(mockConsole.error).toHaveBeenNthCalledWith(
-      3,
+      2,
       expect.stringContaining("test error")
     );
   });

@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { readFileSync } from "fs";
 import { parseSchema } from "./parser/schemaParser";
 import { generateTypeDefinitions } from "./generator/typeGenerator";
@@ -5,6 +7,8 @@ import { generateClient } from "./generator/clientGenerator";
 import { NotionClient } from "./notion/client";
 import { SyncManager } from "./sync/manager";
 import { logger } from "./utils/logger";
+import { program } from "commander";
+import { version } from "../package.json";
 
 export async function generateTypes(): Promise<void> {
   try {
@@ -22,6 +26,7 @@ export async function generateTypes(): Promise<void> {
     await syncManager.validateAndSync(schema);
 
     logger.info("Generating TypeScript type definitions...");
+    console.log(JSON.stringify(schema, null, 2));
     await generateTypeDefinitions(schema);
 
     logger.info("Generating client code...");
@@ -33,3 +38,25 @@ export async function generateTypes(): Promise<void> {
     throw error;
   }
 }
+
+program
+  .name("notionmodelsync")
+  .description(
+    "Notion ORM CLI tool for managing database schemas and generating TypeScript types"
+  )
+  .version(version);
+
+program
+  .command("generate")
+  .description("Generate TypeScript types and client from schema")
+  .action(async () => {
+    try {
+      await generateTypes();
+      logger.success("Successfully generated types and client");
+    } catch (error) {
+      logger.error("Failed to generate types:", error);
+      process.exit(1);
+    }
+  });
+
+program.parse();

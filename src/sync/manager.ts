@@ -138,7 +138,7 @@ export class SyncManager {
       return NotionPropertyTypes.CreatedBy;
     }
 
-    switch (field.type.toLowerCase()) {
+    switch (field.notionType.toLowerCase()) {
       case "string":
         return NotionPropertyTypes.RichText;
       case "boolean":
@@ -163,16 +163,19 @@ export class SyncManager {
         return NotionPropertyTypes.Title;
       default:
         if (
-          field.type.includes("relation") ||
-          field.type.includes("Relation")
+          field.notionType.includes("relation") ||
+          field.notionType.includes("Relation")
         ) {
           return NotionPropertyTypes.Relation;
         }
-        if (field.type.includes("formula") || field.type.includes("Formula")) {
+        if (
+          field.notionType.includes("formula") ||
+          field.notionType.includes("Formula")
+        ) {
           return NotionPropertyTypes.Formula;
         }
         logger.warn(
-          `Unknown field type: ${field.type}, defaulting to rich_text`
+          `Unknown field type: ${field.notionType}, defaulting to rich_text`
         );
         return NotionPropertyTypes.RichText;
     }

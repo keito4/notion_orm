@@ -1,19 +1,32 @@
 {
   "name": "notionmodelsync",
-  "version": "1.0.0",
-  "main": "index.js",
+  "version": "1.0.6",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "notionmodelsync": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
   "directories": {
     "test": "tests"
   },
   "scripts": {
     "test": "jest",
     "lint": "eslint .",
-    "generate": "ts-node src/index.ts generate"
+    "generate": "ts-node src/cli.ts generate",
+    "build": "tsc",
+    "publish": "npm run build && npm publish"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "notion",
+    "orm",
+    "sync"
+  ],
+  "author": "Your Name",
   "license": "ISC",
-  "description": "",
+  "description": "A tool to sync models with Notion.",
   "dependencies": {
     "@notionhq/client": "^2.2.15",
     "@types/jest": "^29.5.14",
@@ -21,6 +34,7 @@
     "chalk": "^5.4.1",
     "commander": "^12.1.0",
     "jest": "^29.7.0",
+    "notionmodelsync": "^1.0.5",
     "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2"
   },

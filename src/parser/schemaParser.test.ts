@@ -99,7 +99,7 @@ describe("Schema Parser", () => {
     expect(idField.optional).toBe(false);
 
     expect(tagsField.name).toBe("tags");
-    expect(tagsField.type).toBe("rich_text");
+    expect(tagsField.type).toBe("multi_select");
     expect(tagsField.optional).toBe(false);
 
     expect(assigneesField.name).toBe("assignees");

@@ -8,10 +8,12 @@
     "outDir": "dist",
     "rootDir": "src",
     "declaration": true,
+    "emitDeclarationOnly": false,
     "skipLibCheck": true,
     "lib": ["ES2022"],
-    "types": ["node", "jest"]
+    "types": ["node", "jest"],
+    "resolveJsonModule": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "sample.ts"],
   "exclude": ["node_modules", "dist", "tests"]
 }
