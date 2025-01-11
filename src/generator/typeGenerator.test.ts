@@ -7,12 +7,21 @@ describe("Code Generator", () => {
       {
         name: "Test",
         fields: [
-          { name: "title", type: "title", optional: false, attributes: [] },
           {
-            name: "description",
-            type: "rich_text",
-            optional: true,
+            name: "title",
+            type: "title",
+            optional: false,
             attributes: [],
+            notionType: "title",
+            isArray: false,
+          },
+          {
+            name: "subItem",
+            type: "relation",
+            optional: false,
+            attributes: [],
+            notionType: "relation",
+            isArray: false,
           },
         ],
         notionDatabaseId: "test123",

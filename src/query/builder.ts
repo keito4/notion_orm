@@ -73,31 +73,42 @@ export class QueryBuilder<T> {
         JSON.stringify(this.relationMappings[this.modelName], null, 2)
       );
     }
+    this.notion = notion;
+    this.modelName = modelName;
+    this.propertyTypes = propertyTypes;
+    this.propertyMappings = propertyMappings;
+    this.relationMappings = relationMappings;
+    this.relationModels = relationModels;
   }
 
   where(
     property: keyof T | string,
     operator: FilterOperator,
-    value: any
+    value: any,
+    modelName: string = this.modelName
   ): QueryBuilder<T> {
-    const fieldOrNotionName = String(property);
-    const notionPropertyName = this.getNotionPropertyName(fieldOrNotionName);
+    const fieldOrNotionName = this.getNotionPropertyName(
+      modelName,
+      String(property)
+    );
     this.filters.push({
       property: fieldOrNotionName,
       operator,
       value,
     });
+    if (this.isDebugMode) {
+      logger.debug(
+        `where() 呼び出し: property=${fieldOrNotionName}, operator=${operator}, value=${value}`
+      );
+    }
     return this;
   }
 
   whereRelation<R>(
     relationProperty: keyof T | string,
-    propertyOrFn:
-      | keyof R
-      | string
-      | ((builder: QueryBuilder<R>) => QueryBuilder<R>),
-    operator?: FilterOperator,
-    value?: any
+    property: keyof R | string,
+    operator: FilterOperator,
+    value: any
   ): QueryBuilder<T> {
     const fieldOrNotionName = String(relationProperty);
     const fieldName = this.getFieldName(fieldOrNotionName);
@@ -118,26 +129,37 @@ export class QueryBuilder<T> {
       this.propertyTypes,
       this.relationModels
     );
-    if (typeof propertyOrFn === "function") {
-      const builder = propertyOrFn(subBuilder);
-      this.relationFilterBuilders.push({
-        fieldName: fieldOrNotionName,
-        subBuilder: builder,
-      });
-    } else {
-      subBuilder.where(propertyOrFn, operator as FilterOperator, value);
-      this.relationFilterBuilders.push({
-        fieldName: fieldOrNotionName,
-        subBuilder,
-      });
+    subBuilder.where(property, operator, value, subModelName);
+    this.relationFilterBuilders.push({
+      fieldName: fieldOrNotionName,
+      subBuilder,
+    });
+
+    if (this.isDebugMode) {
+      logger.debug(
+        `whereRelation() 呼び出し: relationProperty=${fieldOrNotionName}, サブモデル=${subModelName}, property=${String(
+          property
+        )}, operator=${operator}, value=${value}`
+      );
     }
+
     return this;
   }
 
   include(relationProperty: keyof T | string): QueryBuilder<T> {
     const fieldOrNotionName = String(relationProperty);
-    const notionPropertyName = this.getNotionPropertyName(fieldOrNotionName);
+    const notionPropertyName = this.getNotionPropertyName(
+      this.modelName,
+      fieldOrNotionName
+    );
     this.includedRelations.add(notionPropertyName);
+
+    if (this.isDebugMode) {
+      logger.debug(
+        `include() 呼び出し: relationProperty=${notionPropertyName}`
+      );
+    }
+
     return this;
   }
 
@@ -146,18 +168,38 @@ export class QueryBuilder<T> {
     direction: "ascending" | "descending" = "ascending"
   ): QueryBuilder<T> {
     const fieldOrNotionName = String(property);
-    const notionPropertyName = this.getNotionPropertyName(fieldOrNotionName);
+    const notionPropertyName = this.getNotionPropertyName(
+      this.modelName,
+      fieldOrNotionName
+    );
     this.sorts.push({ property: notionPropertyName, direction });
+
+    if (this.isDebugMode) {
+      logger.debug(
+        `orderBy() 呼び出し: property=${fieldOrNotionName}, direction=${direction}`
+      );
+    }
+
     return this;
   }
 
   limit(size: number): QueryBuilder<T> {
     this.pageSize = size;
+
+    if (this.isDebugMode) {
+      logger.debug(`limit() 呼び出し: size=${size}`);
+    }
+
     return this;
   }
 
   after(cursor: string): QueryBuilder<T> {
     this.startCursor = cursor;
+
+    if (this.isDebugMode) {
+      logger.debug(`after() 呼び出し: startCursor=${cursor}`);
+    }
+
     return this;
   }
 
@@ -178,8 +220,8 @@ export class QueryBuilder<T> {
     return property;
   }
 
-  private getNotionPropertyName(property: string): string {
-    const modelMap = this.propertyMappings[this.modelName] || {};
+  private getNotionPropertyName(modelName: string, property: string): string {
+    const modelMap = this.propertyMappings[modelName] || {};
     if (modelMap[property]) {
       return modelMap[property];
     }
@@ -188,7 +230,7 @@ export class QueryBuilder<T> {
         return notionName;
       }
     }
-    return property;
+    throw new Error(`プロパティ "${property}" が見つかりません`);
   }
 
   private getRelationModelName(modelName: string, fieldName: string): string {
@@ -214,27 +256,41 @@ export class QueryBuilder<T> {
   }
 
   private async buildNotionFilter(): Promise<any> {
+    if (this.isDebugMode) {
+      logger.debug("buildNotionFilter() を開始します。");
+    }
+
     const relationFilters: any[] = [];
     for (const info of this.relationFilterBuilders) {
-      const ids = await this.fetchRelatedIds(info.subBuilder);
+      if (this.isDebugMode) {
+        logger.debug(
+          `リレーションフィルターを構築中: fieldName=${info.fieldName}, subBuilder=(${info.subBuilder.modelName})`
+        );
+      }
+
+      const relatedPages = await info.subBuilder.execute();
+      const ids = relatedPages.map((r: any) => r.id);
       if (ids.length === 0) {
         relationFilters.push({
-          property: this.getNotionPropertyName(info.fieldName),
+          property: this.getNotionPropertyName(this.modelName, info.fieldName),
           relation: {
-            contains: "00000000-0000-0000-0000-000000000000",
+            contains: "00000000-0000-0000-0000-000000000000", // 存在しないID
           },
         });
       } else if (ids.length === 1) {
         relationFilters.push({
-          property: this.getNotionPropertyName(info.fieldName),
+          property: this.getNotionPropertyName(this.modelName, info.fieldName),
           relation: {
             contains: ids[0],
           },
         });
       } else {
         relationFilters.push({
-          or: ids.map((id) => ({
-            property: this.getNotionPropertyName(info.fieldName),
+          or: ids.map((id: string) => ({
+            property: this.getNotionPropertyName(
+              this.modelName,
+              info.fieldName
+            ),
             relation: {
               contains: id,
             },
@@ -242,6 +298,7 @@ export class QueryBuilder<T> {
         });
       }
     }
+
     const normalFilters = this.filters.map((f) => this.buildNormalFilter(f));
     if (relationFilters.length === 0 && normalFilters.length === 0) {
       return undefined;
@@ -255,15 +312,36 @@ export class QueryBuilder<T> {
     if (relationFilters.length === 1 && normalFilters.length === 0) {
       return relationFilters[0];
     }
+    if (relationFilters.length > 0 && normalFilters.length === 0) {
+      if (relationFilters.length === 1) {
+        return relationFilters[0];
+      }
+      return { and: relationFilters };
+    }
     return {
       and: [...normalFilters, ...relationFilters],
     };
   }
 
   private buildNormalFilter(condition: FilterCondition): any {
+    if (this.isDebugMode) {
+      logger.debug(
+        `buildNormalFilter() 呼び出し: property=${condition.property}, operator=${condition.operator}, value=${condition.value}`
+      );
+    }
+
     const { property, operator, value } = condition;
-    const notionPropertyName = this.getNotionPropertyName(property);
-    if (this.isRelationProperty(property)) {
+    const notionPropertyName = this.getNotionPropertyName(
+      this.modelName,
+      property
+    );
+
+    // Relation の場合
+    if (
+      this.isRelationProperty(property) &&
+      operator !== "is_empty" &&
+      operator !== "is_not_empty"
+    ) {
       return {
         property: notionPropertyName,
         relation: {
@@ -271,7 +349,9 @@ export class QueryBuilder<T> {
         },
       };
     }
+
     const propertyType = this.getPropertyTypeFromModel(property);
+
     return {
       property: notionPropertyName,
       [propertyType]: this.getFilterCondition(operator, value, propertyType),
@@ -283,6 +363,12 @@ export class QueryBuilder<T> {
     value: any,
     propertyType: NotionPropertyTypes
   ): any {
+    if (this.isDebugMode) {
+      logger.debug(
+        `getFilterCondition() 呼び出し: operator=${operator}, value=${value}, propertyType=${propertyType}`
+      );
+    }
+
     switch (propertyType) {
       case NotionPropertyTypes.Checkbox:
         if (operator === "equals") {
@@ -333,18 +419,18 @@ export class QueryBuilder<T> {
             return { equals: String(value) };
         }
       default:
+        // デフォルトは文字列として扱う
         return { equals: String(value) };
     }
   }
 
-  private async fetchRelatedIds<R>(
-    builder: QueryBuilder<R>
-  ): Promise<string[]> {
-    const results = await builder.execute();
-    return results.map((r: any) => r.id);
-  }
-
   async execute(): Promise<T[]> {
+    if (this.isDebugMode) {
+      logger.debug(
+        `execute() を呼び出し: databaseId=${this.databaseId}, modelName=${this.modelName}`
+      );
+    }
+
     try {
       const notionFilter = await this.buildNotionFilter();
       const query: any = {
@@ -362,13 +448,34 @@ export class QueryBuilder<T> {
       if (this.startCursor) {
         query.start_cursor = this.startCursor;
       }
+
+      if (this.isDebugMode) {
+        logger.debug("最終的なクエリ:", JSON.stringify(query, null, 2));
+      }
+
       const response = await this.notion.databases.query(query);
+
+      if (this.isDebugMode) {
+        logger.debug(
+          `Notionからのレスポンス (結果件数=${response.results.length})`
+        );
+      }
+
       const results = response.results.map((page: any) =>
         this.mapResponseToModel(page)
       );
+
       if (this.includedRelations.size > 0) {
+        if (this.isDebugMode) {
+          logger.debug(
+            `関連データを読み込み: includedRelations=${Array.from(
+              this.includedRelations
+            ).join(", ")}`
+          );
+        }
         await Promise.all(results.map((r) => this.loadRelations(r)));
       }
+
       return results;
     } catch (error: any) {
       logger.error(`${this.modelName} のクエリ実行中にエラーが発生:`, error);
@@ -380,7 +487,14 @@ export class QueryBuilder<T> {
   }
 
   private buildSortCondition(sort: SortCondition): any {
+    if (this.isDebugMode) {
+      logger.debug(
+        `buildSortCondition() 呼び出し: property=${sort.property}, direction=${sort.direction}`
+      );
+    }
+
     const notionPropertyName = this.getNotionPropertyName(
+      this.modelName,
       String(sort.property)
     );
     let finalPropertyName = notionPropertyName;
@@ -392,6 +506,7 @@ export class QueryBuilder<T> {
     } else if (notionPropertyName === "lastEditedTime") {
       finalPropertyName = "last_edited_time";
     }
+
     const isSystemProperty = ["created_time", "last_edited_time"].includes(
       finalPropertyName
     );
@@ -407,12 +522,25 @@ export class QueryBuilder<T> {
   }
 
   private async loadRelations(model: any): Promise<void> {
+    if (this.isDebugMode) {
+      logger.debug(`loadRelations() 呼び出し: model.id=${model.id}`);
+    }
+
     for (const relationProperty of this.includedRelations) {
       if (!model[relationProperty]) continue;
       const relationValue = model[relationProperty];
       const relationIds = Array.isArray(relationValue)
         ? relationValue.map((r: { id: string }) => r.id)
         : [relationValue.id];
+
+      if (this.isDebugMode) {
+        logger.debug(
+          `読み込むリレーション: property=${relationProperty}, relationIds=${relationIds.join(
+            ", "
+          )}`
+        );
+      }
+
       const relationData = await Promise.all(
         relationIds.map((id) => this.getRelationData(id))
       );
@@ -425,9 +553,17 @@ export class QueryBuilder<T> {
   private async getRelationData(id: string): Promise<any> {
     const cached = this.relationCache[id];
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+      if (this.isDebugMode) {
+        logger.debug(
+          `リレーションデータをキャッシュから取得: id=${id}, cacheTimestamp=${cached.timestamp}`
+        );
+      }
       return cached.data;
     }
     try {
+      if (this.isDebugMode) {
+        logger.debug(`リレーションデータをNotionから取得: id=${id}`);
+      }
       const response = await this.notion.pages.retrieve({ page_id: id });
       const mappedData = this.mapResponseToModel(response);
       this.relationCache[id] = {
@@ -452,6 +588,15 @@ export class QueryBuilder<T> {
       createdTime: page.created_time,
       lastEditedTime: page.last_edited_time,
     } as T;
+
+    if (this.isDebugMode) {
+      logger.debug(
+        `mapResponseToModel() 呼び出し: pageId=${page.id}, プロパティ数=${
+          Object.keys(props).length
+        }`
+      );
+    }
+
     return mapped;
   }
 
@@ -459,6 +604,7 @@ export class QueryBuilder<T> {
     if (!property || !property.type) {
       return null;
     }
+
     switch (property.type) {
       case NotionPropertyTypes.Title:
         return property.title?.[0]?.plain_text || "";
