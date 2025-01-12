@@ -402,6 +402,8 @@ export class QueryBuilder<T> {
           default:
             return { equals: Number(value) };
         }
+      case NotionPropertyTypes.People:
+        return { contains: String(value) };
       case NotionPropertyTypes.Date:
         switch (operator) {
           case "equals":
