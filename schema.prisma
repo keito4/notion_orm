@@ -44,10 +44,9 @@ model Document @notionDatabase("13f70a52207f80d58f64cdc627123f87") {
 
 model Domain @notionDatabase("f6e300b8598e42208a2c163444655842") {
   name             String        @title     @map("Name")
-  description?     String        @richText  @map("description")  // Notion がすでに小文字の "description"
+  description?     String        @richText  @map("description")
   archive?         Boolean       @checkbox  @map("Archive")
   person?          Json          @people    @map("Person")
-
   domainParent?    Domain[]      @relation  @map("Domainとのリレーション（Parent item）")
   parentItem?      Domain[]      @relation  @map("Parent item")
   documents?       Document[]    @relation  @map("🏖️ 議事録")
