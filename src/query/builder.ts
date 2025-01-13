@@ -134,7 +134,6 @@ export class QueryBuilder<T> {
       fieldName: fieldOrNotionName,
       subBuilder,
     });
-
     if (this.isDebugMode) {
       logger.debug(
         `whereRelation() 呼び出し: relationProperty=${fieldOrNotionName}, サブモデル=${subModelName}, property=${String(
@@ -142,24 +141,16 @@ export class QueryBuilder<T> {
         )}, operator=${operator}, value=${value}`
       );
     }
-
     return this;
   }
 
   include(relationProperty: keyof T | string): QueryBuilder<T> {
     const fieldOrNotionName = String(relationProperty);
-    const notionPropertyName = this.getNotionPropertyName(
-      this.modelName,
-      fieldOrNotionName
-    );
-    this.includedRelations.add(notionPropertyName);
-
+    const fieldName = this.getFieldName(fieldOrNotionName);
+    this.includedRelations.add(fieldName);
     if (this.isDebugMode) {
-      logger.debug(
-        `include() 呼び出し: relationProperty=${notionPropertyName}`
-      );
+      logger.debug(`include() 呼び出し: relationProperty=${fieldName}`);
     }
-
     return this;
   }
 
@@ -173,33 +164,27 @@ export class QueryBuilder<T> {
       fieldOrNotionName
     );
     this.sorts.push({ property: notionPropertyName, direction });
-
     if (this.isDebugMode) {
       logger.debug(
         `orderBy() 呼び出し: property=${fieldOrNotionName}, direction=${direction}`
       );
     }
-
     return this;
   }
 
   limit(size: number): QueryBuilder<T> {
     this.pageSize = size;
-
     if (this.isDebugMode) {
       logger.debug(`limit() 呼び出し: size=${size}`);
     }
-
     return this;
   }
 
   after(cursor: string): QueryBuilder<T> {
     this.startCursor = cursor;
-
     if (this.isDebugMode) {
       logger.debug(`after() 呼び出し: startCursor=${cursor}`);
     }
-
     return this;
   }
 
@@ -259,7 +244,6 @@ export class QueryBuilder<T> {
     if (this.isDebugMode) {
       logger.debug("buildNotionFilter() を開始します。");
     }
-
     const relationFilters: any[] = [];
     for (const info of this.relationFilterBuilders) {
       if (this.isDebugMode) {
@@ -267,14 +251,13 @@ export class QueryBuilder<T> {
           `リレーションフィルターを構築中: fieldName=${info.fieldName}, subBuilder=(${info.subBuilder.modelName})`
         );
       }
-
       const relatedPages = await info.subBuilder.execute();
       const ids = relatedPages.map((r: any) => r.id);
       if (ids.length === 0) {
         relationFilters.push({
           property: this.getNotionPropertyName(this.modelName, info.fieldName),
           relation: {
-            contains: "00000000-0000-0000-0000-000000000000", // 存在しないID
+            contains: "00000000-0000-0000-0000-000000000000",
           },
         });
       } else if (ids.length === 1) {
@@ -298,7 +281,6 @@ export class QueryBuilder<T> {
         });
       }
     }
-
     const normalFilters = this.filters.map((f) => this.buildNormalFilter(f));
     if (relationFilters.length === 0 && normalFilters.length === 0) {
       return undefined;
@@ -329,14 +311,11 @@ export class QueryBuilder<T> {
         `buildNormalFilter() 呼び出し: property=${condition.property}, operator=${condition.operator}, value=${condition.value}`
       );
     }
-
     const { property, operator, value } = condition;
     const notionPropertyName = this.getNotionPropertyName(
       this.modelName,
       property
     );
-
-    // Relation の場合
     if (
       this.isRelationProperty(property) &&
       operator !== "is_empty" &&
@@ -349,9 +328,7 @@ export class QueryBuilder<T> {
         },
       };
     }
-
     const propertyType = this.getPropertyTypeFromModel(property);
-
     return {
       property: notionPropertyName,
       [propertyType]: this.getFilterCondition(operator, value, propertyType),
@@ -368,7 +345,6 @@ export class QueryBuilder<T> {
         `getFilterCondition() 呼び出し: operator=${operator}, value=${value}, propertyType=${propertyType}`
       );
     }
-
     switch (propertyType) {
       case NotionPropertyTypes.Checkbox:
         if (operator === "equals") {
@@ -421,7 +397,6 @@ export class QueryBuilder<T> {
             return { equals: String(value) };
         }
       default:
-        // デフォルトは文字列として扱う
         return { equals: String(value) };
     }
   }
@@ -432,7 +407,6 @@ export class QueryBuilder<T> {
         `execute() を呼び出し: databaseId=${this.databaseId}, modelName=${this.modelName}`
       );
     }
-
     try {
       const notionFilter = await this.buildNotionFilter();
       const query: any = {
@@ -450,23 +424,18 @@ export class QueryBuilder<T> {
       if (this.startCursor) {
         query.start_cursor = this.startCursor;
       }
-
       if (this.isDebugMode) {
         logger.debug("最終的なクエリ:", JSON.stringify(query, null, 2));
       }
-
       const response = await this.notion.databases.query(query);
-
       if (this.isDebugMode) {
         logger.debug(
           `Notionからのレスポンス (結果件数=${response.results.length})`
         );
       }
-
       const results = response.results.map((page: any) =>
         this.mapResponseToModel(page)
       );
-
       if (this.includedRelations.size > 0) {
         if (this.isDebugMode) {
           logger.debug(
@@ -475,9 +444,8 @@ export class QueryBuilder<T> {
             ).join(", ")}`
           );
         }
-        await Promise.all(results.map((r) => this.loadRelations(r)));
+        await this.loadRelationsBulk(results);
       }
-
       return results;
     } catch (error: any) {
       logger.error(`${this.modelName} のクエリ実行中にエラーが発生:`, error);
@@ -494,7 +462,6 @@ export class QueryBuilder<T> {
         `buildSortCondition() 呼び出し: property=${sort.property}, direction=${sort.direction}`
       );
     }
-
     const notionPropertyName = this.getNotionPropertyName(
       this.modelName,
       String(sort.property)
@@ -508,7 +475,6 @@ export class QueryBuilder<T> {
     } else if (notionPropertyName === "lastEditedTime") {
       finalPropertyName = "last_edited_time";
     }
-
     const isSystemProperty = ["created_time", "last_edited_time"].includes(
       finalPropertyName
     );
@@ -523,58 +489,114 @@ export class QueryBuilder<T> {
     return sortCondition;
   }
 
-  private async loadRelations(model: any): Promise<void> {
-    if (this.isDebugMode) {
-      logger.debug(`loadRelations() 呼び出し: model.id=${model.id}`);
-    }
-
-    for (const relationProperty of this.includedRelations) {
-      if (!model[relationProperty]) continue;
-      const relationValue = model[relationProperty];
-      const relationIds = Array.isArray(relationValue)
-        ? relationValue.map((r: { id: string }) => r.id)
-        : [relationValue.id];
-
-      if (this.isDebugMode) {
-        logger.debug(
-          `読み込むリレーション: property=${relationProperty}, relationIds=${relationIds.join(
-            ", "
-          )}`
+  private async loadRelationsBulk(results: T[]): Promise<void> {
+    const requests: {
+      recordIndex: number;
+      fieldName: string;
+      subModelName: string;
+      pageId: string;
+    }[] = [];
+    for (let i = 0; i < results.length; i++) {
+      const model = results[i] as any;
+      for (const fieldName of this.includedRelations) {
+        const value = model[fieldName];
+        if (!value) continue;
+        const relationIds = Array.isArray(value)
+          ? value.map((v: any) => v.id)
+          : [value.id];
+        const subModelName = this.getRelationModelName(
+          this.modelName,
+          fieldName
         );
+        for (const pageId of relationIds) {
+          requests.push({
+            recordIndex: i,
+            fieldName,
+            subModelName,
+            pageId,
+          });
+        }
       }
-
-      const relationData = await Promise.all(
-        relationIds.map((id) => this.getRelationData(id))
-      );
-      model[relationProperty] = Array.isArray(relationValue)
-        ? relationData
-        : relationData[0];
+    }
+    const uniqueRequestsMap = new Map<
+      string,
+      {
+        recordIndex: number;
+        fieldName: string;
+        subModelName: string;
+        pageId: string;
+      }[]
+    >();
+    for (const req of requests) {
+      const key = `${req.subModelName}:${req.pageId}`;
+      if (!uniqueRequestsMap.has(key)) {
+        uniqueRequestsMap.set(key, [req]);
+      } else {
+        uniqueRequestsMap.get(key)!.push(req);
+      }
+    }
+    const pageLoadPromises: {
+      key: string;
+      promise: Promise<any>;
+    }[] = [];
+    for (const [key, batch] of uniqueRequestsMap.entries()) {
+      const { subModelName, pageId } = batch[0];
+      pageLoadPromises.push({
+        key,
+        promise: this.getRelationData(pageId, subModelName),
+      });
+    }
+    const resultsMap = new Map<string, any>();
+    await Promise.all(
+      pageLoadPromises.map(async (p) => {
+        const data = await p.promise;
+        resultsMap.set(p.key, data);
+      })
+    );
+    for (const [key, batch] of uniqueRequestsMap.entries()) {
+      const data = resultsMap.get(key);
+      for (const req of batch) {
+        const model = results[req.recordIndex] as any;
+        const rawValue = model[req.fieldName];
+        if (Array.isArray(rawValue)) {
+          const idx = rawValue.findIndex((v: any) => v.id === req.pageId);
+          if (idx !== -1) rawValue[idx] = data;
+        } else {
+          model[req.fieldName] = data;
+        }
+      }
     }
   }
 
-  private async getRelationData(id: string): Promise<any> {
-    const cached = this.relationCache[id];
+  private async getRelationData(id: string, modelName: string): Promise<any> {
+    const cacheKey = `${modelName}-${id}`;
+    const cached = this.relationCache[cacheKey];
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
       if (this.isDebugMode) {
         logger.debug(
-          `リレーションデータをキャッシュから取得: id=${id}, cacheTimestamp=${cached.timestamp}`
+          `リレーションデータをキャッシュから取得: id=${id}, modelName=${modelName}, cacheTimestamp=${cached.timestamp}`
         );
       }
       return cached.data;
     }
     try {
       if (this.isDebugMode) {
-        logger.debug(`リレーションデータをNotionから取得: id=${id}`);
+        logger.debug(
+          `リレーションデータをNotionから取得: id=${id}, modelName=${modelName}`
+        );
       }
       const response = await this.notion.pages.retrieve({ page_id: id });
       const mappedData = this.mapResponseToModel(response);
-      this.relationCache[id] = {
+      this.relationCache[cacheKey] = {
         data: mappedData,
         timestamp: Date.now(),
       };
       return mappedData;
     } catch (error) {
-      logger.error(`リレーションデータの取得中にエラー (ID: ${id}):`, error);
+      logger.error(
+        `リレーションデータの取得中にエラー (ID: ${id}, modelName: ${modelName}):`,
+        error
+      );
       throw error;
     }
   }
@@ -590,7 +612,6 @@ export class QueryBuilder<T> {
       createdTime: page.created_time,
       lastEditedTime: page.last_edited_time,
     } as T;
-
     if (this.isDebugMode) {
       logger.debug(
         `mapResponseToModel() 呼び出し: pageId=${page.id}, プロパティ数=${
@@ -598,7 +619,6 @@ export class QueryBuilder<T> {
         }`
       );
     }
-
     return mapped;
   }
 
@@ -606,7 +626,6 @@ export class QueryBuilder<T> {
     if (!property || !property.type) {
       return null;
     }
-
     switch (property.type) {
       case NotionPropertyTypes.Title:
         return property.title?.[0]?.plain_text || "";
