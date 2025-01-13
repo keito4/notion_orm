@@ -40,6 +40,7 @@ interface RelationCache {
 export class QueryBuilder<T> {
   private filters: FilterCondition[] = [];
   private sorts: SortCondition[] = [];
+  private idFilter: string | null = null;
   private pageSize?: number;
   private startCursor?: string;
   private includedRelations: Set<string> = new Set();
@@ -312,6 +313,10 @@ export class QueryBuilder<T> {
       );
     }
     const { property, operator, value } = condition;
+    if (property === "id") {
+      this.idFilter = value;
+      return;
+    }
     const notionPropertyName = this.getNotionPropertyName(
       this.modelName,
       property
@@ -346,6 +351,8 @@ export class QueryBuilder<T> {
       );
     }
     switch (propertyType) {
+      case NotionPropertyTypes.Id:
+        return { equals: String(value) };
       case NotionPropertyTypes.Checkbox:
         if (operator === "equals") {
           return { equals: Boolean(value) };
@@ -409,31 +416,37 @@ export class QueryBuilder<T> {
     }
     try {
       const notionFilter = await this.buildNotionFilter();
+      console.log("idFilter", this.idFilter);
       const query: any = {
         database_id: this.databaseId,
       };
-      if (notionFilter) {
+      let results: any;
+      if (this.idFilter) {
+        const response = await this.notion.pages.retrieve({
+          page_id: this.idFilter,
+        });
+        results = [response];
+      } else if (notionFilter) {
         query.filter = notionFilter;
-      }
-      if (this.sorts.length > 0) {
-        query.sorts = this.sorts.map((s) => this.buildSortCondition(s));
-      }
-      if (this.pageSize) {
-        query.page_size = this.pageSize;
-      }
-      if (this.startCursor) {
-        query.start_cursor = this.startCursor;
+        if (this.sorts.length > 0) {
+          query.sorts = this.sorts.map((s) => this.buildSortCondition(s));
+        }
+        if (this.pageSize) {
+          query.page_size = this.pageSize;
+        }
+        if (this.startCursor) {
+          query.start_cursor = this.startCursor;
+        }
+        if (this.isDebugMode) {
+          logger.debug("最終的なクエリ:", JSON.stringify(query, null, 2));
+        }
+        const response = await this.notion.databases.query(query);
+        results = response.results;
       }
       if (this.isDebugMode) {
-        logger.debug("最終的なクエリ:", JSON.stringify(query, null, 2));
+        logger.debug(`Notionからのレスポンス (結果件数=${results.length})`);
       }
-      const response = await this.notion.databases.query(query);
-      if (this.isDebugMode) {
-        logger.debug(
-          `Notionからのレスポンス (結果件数=${response.results.length})`
-        );
-      }
-      const results = response.results.map((page: any) =>
+      const mappedResults = results.map((page: any) =>
         this.mapResponseToModel(page)
       );
       if (this.includedRelations.size > 0) {
@@ -444,9 +457,9 @@ export class QueryBuilder<T> {
             ).join(", ")}`
           );
         }
-        await this.loadRelationsBulk(results);
+        await this.loadRelationsBulk(mappedResults);
       }
-      return results;
+      return mappedResults;
     } catch (error: any) {
       logger.error(`${this.modelName} のクエリ実行中にエラーが発生:`, error);
       if (error.code === "validation_error") {

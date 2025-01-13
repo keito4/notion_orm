@@ -242,11 +242,13 @@ import { NotionPropertyTypes } from "notionmodelsync";
 export const ${model.name}ModelSettings = {
   notionDatabaseId: "${model.notionDatabaseId}",
   propertyMappings: {
+    id: "id",
     ${model.fields
       .map((field) => `${field.name}: "${field.notionName}"`)
       .join(",\n    ")}
   },
   propertyTypes: {
+    id: NotionPropertyTypes.Id,
     ${model.fields
       .map(
         (field) => `${field.name}: ${getNotionPropertyEnum(field.notionType)}`
@@ -261,6 +263,8 @@ function getNotionPropertyEnum(type: string): string {
   switch (type.toLowerCase()) {
     case "title":
       return "NotionPropertyTypes.Title";
+    case "id":
+      return "NotionPropertyTypes.Id";
     case "rich_text":
     case "text":
       return "NotionPropertyTypes.RichText";

@@ -1,4 +1,5 @@
 export enum NotionPropertyTypes {
+  Id = "id",
   Title = "title",
   RichText = "rich_text",
   Number = "number",
@@ -18,6 +19,11 @@ export enum NotionPropertyTypes {
   CreatedBy = "created_by",
   LastEditedTime = "last_edited_time",
   LastEditedBy = "last_edited_by",
+}
+
+export interface NotionIdProperty extends NotionProperty {
+  type: NotionPropertyTypes.Id;
+  id: string;
 }
 
 export interface NotionProperty {
@@ -93,6 +99,7 @@ export interface NotionFormulaProperty extends NotionProperty {
 }
 
 export type NotionDatabaseProperty =
+  | NotionIdProperty
   | NotionTitleProperty
   | NotionRichTextProperty
   | NotionNumberProperty

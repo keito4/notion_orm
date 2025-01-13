@@ -17,7 +17,7 @@ export function parseSchema(content: string): Schema {
     for (const line of lines) {
       if (line.startsWith("model")) {
         const modelMatch = line.match(
-          /model\s+(\w+)\s*@notionDatabase\("([^"]+)"\)/
+          /model\s+(\w+)\s*@notionDatabase\(\s*"([^"]+)"\s*\)/
         );
         if (!modelMatch) {
           throw new Error(`Invalid model declaration: ${line}`);
@@ -43,15 +43,17 @@ export function parseSchema(content: string): Schema {
 
       if (inModelBlock && currentModel) {
         const fieldMatch = line.match(
-          /^(?:"([^"]+)"|(\w+))\s+(\w+)(\[\])?(\?)?\s*((?:@\w+(?:\([^)]*\))?\s*)*)/
+          /^(?:"([^"]+)"|(\w+))(\?)?\s+(\w+)(\[\])?(\?)?\s*((?:@\w+(?:\([^)]*\))?\s*)*)/
         );
         if (fieldMatch) {
           const originalName = fieldMatch[1] || fieldMatch[2];
-          const userType = fieldMatch[3];
-          const isArray = !!fieldMatch[4];
-          const optional = !!fieldMatch[5];
-          const attributesStr = fieldMatch[6] || "";
+          const nameOptional = !!fieldMatch[3];
+          const userType = fieldMatch[4];
+          const isArray = !!fieldMatch[5];
+          const typeOptional = !!fieldMatch[6];
+          const attributesStr = fieldMatch[7] || "";
           const attributes = attributesStr.match(/@\w+(?:\([^)]*\))?/g) || [];
+          const optional = nameOptional || typeOptional;
 
           if (fieldNames.has(originalName)) {
             throw new Error(`Duplicate field name: ${originalName}`);
@@ -78,8 +80,8 @@ export function parseSchema(content: string): Schema {
             notionName: mappedName,
             type: userType,
             notionType: notionPropertyType,
-            isArray: isArray,
-            optional: optional,
+            isArray,
+            optional,
             attributes,
           };
 
@@ -106,6 +108,9 @@ function mapTypeToNotion(
   isArray: boolean,
   attributes: string[]
 ): string {
+  if (attributes.includes("@id")) {
+    return NotionPropertyTypes.Id;
+  }
   if (attributes.includes("@title")) {
     return NotionPropertyTypes.Title;
   }
@@ -135,6 +140,12 @@ function mapTypeToNotion(
   }
   if (attributes.includes("@number")) {
     return NotionPropertyTypes.Number;
+  }
+  if (attributes.includes("@createdTime")) {
+    return NotionPropertyTypes.CreatedTime;
+  }
+  if (attributes.includes("@createdBy")) {
+    return NotionPropertyTypes.CreatedBy;
   }
 
   if (isArray) {
