@@ -140,6 +140,7 @@ export class SyncManager {
 
     switch (field.notionType.toLowerCase()) {
       case "string":
+      case "rich_text":
         return NotionPropertyTypes.RichText;
       case "boolean":
       case "checkbox":

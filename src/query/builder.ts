@@ -408,7 +408,7 @@ export class QueryBuilder<T> {
     }
   }
 
-  async execute(): Promise<T[]> {
+  async execute(includePageContent: boolean = false): Promise<T[]> {
     if (this.isDebugMode) {
       logger.debug(
         `execute() を呼び出し: databaseId=${this.databaseId}, modelName=${this.modelName}`
@@ -451,17 +451,18 @@ export class QueryBuilder<T> {
       if (this.isDebugMode) {
         logger.debug(`Notionからのレスポンス (結果件数=${results.length})`);
       }
-      const mappedResults = results.map((page: any) =>
-        this.mapResponseToModel(page)
-      );
-      if (this.includedRelations.size > 0) {
-        if (this.isDebugMode) {
-          logger.debug(
-            `関連データを読み込み: includedRelations=${Array.from(
-              this.includedRelations
-            ).join(", ")}`
-          );
+      const mappedResults: T[] = [];
+      for (const page of results) {
+        const mapped = this.mapResponseToModel(page);
+        if (includePageContent) {
+          const blocksResponse = await this.notion.blocks.children.list({
+            block_id: page.id,
+          });
+          (mapped as any).pageContent = blocksResponse.results;
         }
+        mappedResults.push(mapped);
+      }
+      if (this.includedRelations.size > 0) {
         await this.loadRelationsBulk(mappedResults);
       }
       return mappedResults;
@@ -602,6 +603,10 @@ export class QueryBuilder<T> {
       }
       const response = await this.notion.pages.retrieve({ page_id: id });
       const mappedData = this.mapResponseToModel(response);
+      const blocksResponse = await this.notion.blocks.children.list({
+        block_id: id,
+      });
+      (mappedData as any).pageContent = blocksResponse.results;
       this.relationCache[cacheKey] = {
         data: mappedData,
         timestamp: Date.now(),
