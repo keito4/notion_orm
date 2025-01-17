@@ -51,7 +51,7 @@ export class QueryBuilder<T> {
 
   constructor(
     private notion: Client,
-    private databaseId: string,
+    public databaseId: string,
     private modelName: string,
     private relationMappings: Record<string, Record<string, string>> = {},
     private propertyMappings: Record<string, Record<string, string>> = {},
@@ -442,6 +442,11 @@ export class QueryBuilder<T> {
         }
         const response = await this.notion.databases.query(query);
         results = response.results;
+      } else {
+        const response = await this.notion.databases.query({
+          database_id: this.databaseId,
+        });
+        results = response.results;
       }
       if (this.isDebugMode) {
         logger.debug(`Notionからのレスポンス (結果件数=${results.length})`);
@@ -548,10 +553,7 @@ export class QueryBuilder<T> {
         uniqueRequestsMap.get(key)!.push(req);
       }
     }
-    const pageLoadPromises: {
-      key: string;
-      promise: Promise<any>;
-    }[] = [];
+    const pageLoadPromises: { key: string; promise: Promise<any> }[] = [];
     for (const [key, batch] of uniqueRequestsMap.entries()) {
       const { subModelName, pageId } = batch[0];
       pageLoadPromises.push({
@@ -670,6 +672,183 @@ export class QueryBuilder<T> {
         );
       default:
         return "";
+    }
+  }
+
+  private buildPropertyValue(property: string, value: any): any {
+    const propertyType = this.getPropertyTypeFromModel(property);
+    switch (propertyType) {
+      case NotionPropertyTypes.Title:
+        return {
+          title: [
+            {
+              type: "text",
+              text: { content: String(value) },
+            },
+          ],
+        };
+      case NotionPropertyTypes.RichText:
+        return {
+          rich_text: [
+            {
+              type: "text",
+              text: { content: String(value) },
+            },
+          ],
+        };
+      case NotionPropertyTypes.Number:
+        return { number: typeof value === "number" ? value : Number(value) };
+      case NotionPropertyTypes.Checkbox:
+        return { checkbox: Boolean(value) };
+      case NotionPropertyTypes.Select:
+        return value ? { select: { name: String(value) } } : { select: null };
+      case NotionPropertyTypes.MultiSelect:
+        return {
+          multi_select: Array.isArray(value)
+            ? value.map((v: any) => ({ name: String(v) }))
+            : [],
+        };
+      case NotionPropertyTypes.Date:
+        return value ? { date: { start: String(value) } } : { date: null };
+      case NotionPropertyTypes.People:
+        return {
+          people: Array.isArray(value)
+            ? value.map((v: any) => ({ id: v }))
+            : [],
+        };
+      case NotionPropertyTypes.Relation:
+        return {
+          relation: Array.isArray(value)
+            ? value.map((v: any) => ({ id: v }))
+            : [{ id: value }],
+        };
+      default:
+        return {
+          rich_text: [
+            {
+              type: "text",
+              text: { content: String(value) },
+            },
+          ],
+        };
+    }
+  }
+
+  private buildNotionProperties(
+    userProperties: Record<string, any>
+  ): Record<string, any> {
+    const notionProperties: Record<string, any> = {};
+    for (const [key, val] of Object.entries(userProperties)) {
+      const notionKey = this.getNotionPropertyName(this.modelName, key);
+      notionProperties[notionKey] = this.buildPropertyValue(key, val);
+    }
+    return notionProperties;
+  }
+
+  public async createDatabase(
+    parentPageId: string,
+    title: string,
+    propertyDefinitions: Record<string, any>
+  ): Promise<any> {
+    try {
+      const response = await this.notion.databases.create({
+        parent: { page_id: parentPageId },
+        title: [
+          {
+            type: "text",
+            text: { content: title },
+          },
+        ],
+        properties: propertyDefinitions,
+      });
+      if (this.isDebugMode) {
+        logger.debug(
+          "createDatabase() レスポンス: ",
+          JSON.stringify(response, null, 2)
+        );
+      }
+      return response;
+    } catch (error: any) {
+      logger.error(`データベース作成中にエラーが発生:`, error);
+      throw error;
+    }
+  }
+
+  public async updateDatabase(
+    databaseId: string,
+    newTitle?: string,
+    newPropertyDefinitions?: Record<string, any>
+  ): Promise<any> {
+    try {
+      const payload: any = {};
+      if (newTitle) {
+        payload.title = [
+          {
+            type: "text",
+            text: { content: newTitle },
+          },
+        ];
+      }
+      if (newPropertyDefinitions) {
+        payload.properties = newPropertyDefinitions;
+      }
+      const response = await this.notion.databases.update({
+        database_id: databaseId,
+        ...payload,
+      });
+      if (this.isDebugMode) {
+        logger.debug(
+          "updateDatabase() レスポンス: ",
+          JSON.stringify(response, null, 2)
+        );
+      }
+      return response;
+    } catch (error: any) {
+      logger.error(`データベース更新中にエラーが発生:`, error);
+      throw error;
+    }
+  }
+
+  public async createPage(userProperties: Record<string, any>): Promise<any> {
+    try {
+      const properties = this.buildNotionProperties(userProperties);
+      const response = await this.notion.pages.create({
+        parent: { database_id: this.databaseId },
+        properties,
+      });
+      if (this.isDebugMode) {
+        logger.debug(
+          "createPage() レスポンス: ",
+          JSON.stringify(response, null, 2)
+        );
+      }
+      return response;
+    } catch (error: any) {
+      logger.error(`ページ作成中にエラーが発生:`, error);
+      throw error;
+    }
+  }
+
+  public async updatePage(
+    pageId: string,
+    userProperties: Record<string, any>
+  ): Promise<any> {
+    try {
+      const properties = this.buildNotionProperties(userProperties);
+      const response = await this.notion.pages.update({
+        page_id: pageId,
+        properties,
+      });
+      if (this.isDebugMode) {
+        logger.debug(
+          "updatePage() レスポンス: ",
+          JSON.stringify(response, null, 2)
+        );
+      }
+      return response;
+    } catch (error: any) {
+      logger.error(`ページ更新中にエラーが発生:`, error);
+      throw error;
     }
   }
 }
