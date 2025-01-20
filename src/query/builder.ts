@@ -458,7 +458,9 @@ export class QueryBuilder<T> {
           const blocksResponse = await this.notion.blocks.children.list({
             block_id: page.id,
           });
-          (mapped as any).pageContent = blocksResponse.results;
+          (mapped as any).pageContent = this.extractMarkdownFromBlocks(
+            blocksResponse.results
+          );
         }
         mappedResults.push(mapped);
       }
@@ -855,5 +857,33 @@ export class QueryBuilder<T> {
       logger.error(`ページ更新中にエラーが発生:`, error);
       throw error;
     }
+  }
+  private extractMarkdownFromBlocks(blocks: any[]): string {
+    return blocks
+      .map((block) => {
+        const text = (block[block.type]?.rich_text || [])
+          .map((rt: any) => rt.plain_text)
+          .join("");
+
+        switch (block.type) {
+          case "heading_1":
+            return `# ${text}\n`;
+          case "heading_2":
+            return `## ${text}\n`;
+          case "heading_3":
+            return `### ${text}\n`;
+          case "paragraph":
+            return `${text}\n`;
+          case "bulleted_list_item":
+            return `- ${text}`;
+          case "numbered_list_item":
+            return `1. ${text}`;
+          case "code":
+            return `\`\`\`\n${text}\n\`\`\``;
+          default:
+            return "";
+        }
+      })
+      .join("\n");
   }
 }
