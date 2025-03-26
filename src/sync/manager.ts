@@ -4,12 +4,12 @@ import { logger } from "../utils/logger";
 import { NotionPropertyTypes } from "../types/notionTypes";
 
 export class SyncManager {
-  constructor(private notionClient: NotionClient) {}
+  constructor(private readonly _notionClient: NotionClient) {}
 
   async validateAndSync(schema: Schema): Promise<void> {
     try {
       logger.info("Starting database validation and sync...");
-      await this.notionClient.validateSchema(schema);
+      await this._notionClient.validateSchema(schema);
 
       for (const model of schema.models) {
         await this.syncModel(model);
@@ -25,7 +25,7 @@ export class SyncManager {
   private async syncModel(model: Model): Promise<void> {
     try {
       logger.info(`Syncing model: ${model.name}`);
-      const database = await this.notionClient.getDatabaseSchema(
+      const database = await this._notionClient.getDatabaseSchema(
         model.notionDatabaseId
       );
 

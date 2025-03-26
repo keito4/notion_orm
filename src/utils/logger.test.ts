@@ -15,7 +15,7 @@ declare const process: {
 };
 
 type MockSpyInstance = {
-  mockImplementation: (fn: () => void) => MockSpyInstance;
+  mockImplementation: (_: () => void) => MockSpyInstance;
   mockRestore: () => void;
   mockClear: () => void;
 };
