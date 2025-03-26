@@ -50,7 +50,7 @@ function formatError(error: unknown): string {
 
 export const logger = {
   debug: (message: string, ...args: LogArgs): void => {
-    if (process.env.DEBUG) {
+    if (typeof process !== 'undefined' && process.env.DEBUG) {
       console.log(formatMessage("debug", message), ...args);
     }
   },

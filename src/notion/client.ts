@@ -147,10 +147,10 @@ export class NotionClient {
     database: NotionDatabase
   ): Promise<void> {
     const notionProperties = database.properties;
-    const propertyNames = Object.keys(notionProperties);
+    // const propertyNames = Object.keys(notionProperties);
 
     // Notion から取得したフィールド情報はローカル変数として利用
-    const notionFields = Object.entries(notionProperties).map(
+    /* const notionFields = Object.entries(notionProperties).map(
       ([key, property]) => {
         const isOptional = property.type !== NotionPropertyTypes.Title;
         return {
@@ -160,15 +160,15 @@ export class NotionClient {
           attributes: [],
         };
       }
-    );
+    ); */
 
     // もし Select / MultiSelect でオプション一覧を使う場合の処理
-    Object.entries(notionProperties).forEach(([_, property]) => {
+    Object.entries(notionProperties).forEach(([/* unused */_, property]) => {
       if (
         property.type === NotionPropertyTypes.Select ||
         property.type === NotionPropertyTypes.MultiSelect
       ) {
-        const options = this.getPropertyOptions(property);
+        // const options = this.getPropertyOptions(property);
       }
     });
   }
