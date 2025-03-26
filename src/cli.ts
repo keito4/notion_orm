@@ -54,7 +54,7 @@ program
       logger.success("Successfully generated types and client");
     } catch (error) {
       logger.error("Failed to generate types:", error);
-      process.exit(1);
+      typeof process !== 'undefined' && process.exit(1);
     }
   });
 

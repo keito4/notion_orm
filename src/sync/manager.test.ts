@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, jest } from "@jest/globals";
-import { SyncManager } from "./manager";
-import { NotionClient } from "../notion/client";
-import { Schema } from "../types";
+// import { SyncManager } from "./manager";
+// import { NotionClient } from "../notion/client";
+// import { Schema } from "../types";
 
 import type {
   DatabaseObjectResponse,
@@ -95,9 +95,9 @@ const mockClient = {
   },
   databases: {
     retrieve: jest
-      .fn<(params: any) => Promise<DatabaseObjectResponse>>()
-      .mockImplementation(async (params) => {
-        if (params.database_id === "invalid-id") {
+      .fn<(_params: any) => Promise<DatabaseObjectResponse>>()
+      .mockImplementation(async (_params) => {
+        if (_params.database_id === "invalid-id") {
           const error = Object.assign(new Error("Invalid database ID"), {
             code: "invalid_request_url",
             status: 400,
@@ -106,7 +106,7 @@ const mockClient = {
           });
           return Promise.reject(error);
         }
-        if (params.database_id === "unauthorized-id") {
+        if (_params.database_id === "unauthorized-id") {
           const error = Object.assign(new Error("API key is invalid"), {
             code: "unauthorized",
             status: 401,
@@ -142,8 +142,8 @@ jest.mock("@notionhq/client", () => {
 });
 
 describe("Notion Connection", () => {
-  let mockNotionClient: jest.Mocked<NotionClient>;
-  let syncManager: SyncManager;
+  // let mockNotionClient: jest.Mocked<NotionClient>;
+  // let syncManager: SyncManager;
 
   beforeEach(() => {
     process.env.NOTION_API_KEY = "test-api-key";
@@ -157,7 +157,7 @@ describe("Notion Connection", () => {
   });
 
   test("should validate schema with multiple models", async () => {
-    const schema: Schema = {
+    /* const schema: Schema = {
       models: [
         {
           name: "Document",
@@ -170,7 +170,7 @@ describe("Notion Connection", () => {
           notionDatabaseId: "valid-database-id-2",
         },
       ],
-    };
+    }; */
 
     const response = await mockClient.databases.retrieve({
       database_id: "valid-database-id-1",

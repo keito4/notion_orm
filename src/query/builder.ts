@@ -47,7 +47,7 @@ export class QueryBuilder<T> {
   private relationCache: RelationCache = {};
   private relationFilterBuilders: RelationFilterInfo[] = [];
   private readonly CACHE_DURATION = 5 * 60 * 1000;
-  private isDebugMode: boolean = process.env.DEBUG === "true";
+  private isDebugMode: boolean = typeof process !== 'undefined' && process.env.DEBUG === "true";
 
   constructor(
     private notion: Client,
