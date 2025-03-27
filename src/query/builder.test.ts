@@ -3,6 +3,7 @@
  */
 import { QueryBuilder } from "./builder";
 import { NotionPropertyTypes } from "../types/notionTypes";
+import { NotionClient } from "../notion/client";
 import { describe, it, beforeEach, expect, jest } from "@jest/globals";
 
 describe("QueryBuilder", () => {
@@ -293,6 +294,135 @@ describe("QueryBuilder", () => {
           checkbox: { equals: true },
         },
       ],
+    });
+  });
+  
+  describe("addSelectOptions", () => {
+    beforeEach(() => {
+      notionMock.databases.retrieve = jest.fn().mockResolvedValue({
+        properties: {
+          Status: {
+            id: "prop_1",
+            name: "Status",
+            type: "select",
+            select: {
+              options: [
+                { id: "opt_1", name: "既存オプション", color: "blue" }
+              ]
+            }
+          }
+        }
+      });
+      notionMock.databases.update = jest.fn().mockResolvedValue({});
+    });
+    
+    it("セレクトプロパティにオプションを追加できること", async () => {
+      const qb = new QueryBuilder<any>(
+        notionMock,
+        databaseId,
+        modelName,
+        relationMappings,
+        propertyMappings,
+        propertyTypes
+      );
+      
+      await qb.addSelectOptions(
+        "statusField",
+        [{ name: "新しいオプション", color: "green" }]
+      );
+      
+      expect(notionMock.databases.retrieve).toHaveBeenCalledWith({
+        database_id: databaseId
+      });
+      
+      expect(notionMock.databases.update).toHaveBeenCalled();
+    });
+    
+    it("マルチセレクトプロパティにオプションを追加できること", async () => {
+      const originalPropertyType = propertyTypes.TestModel.statusField;
+      propertyTypes.TestModel.statusField = NotionPropertyTypes.MultiSelect;
+      
+      notionMock.databases.retrieve = jest.fn().mockResolvedValue({
+        properties: {
+          Status: {
+            id: "prop_1",
+            name: "Status",
+            type: "multi_select",
+            multi_select: {
+              options: [
+                { id: "opt_1", name: "既存オプション", color: "red" }
+              ]
+            }
+          }
+        }
+      });
+      
+      const qb = new QueryBuilder<any>(
+        notionMock,
+        databaseId,
+        modelName,
+        relationMappings,
+        propertyMappings,
+        propertyTypes
+      );
+      
+      await qb.addSelectOptions(
+        "statusField",
+        [{ name: "新しいオプション", color: "green" }]
+      );
+      
+      expect(notionMock.databases.retrieve).toHaveBeenCalledWith({
+        database_id: databaseId
+      });
+      
+      expect(notionMock.databases.update).toHaveBeenCalled();
+      
+      propertyTypes.TestModel.statusField = originalPropertyType;
+    });
+    
+    it("Select/MultiSelect以外のプロパティでエラーを投げること", async () => {
+      const qb = new QueryBuilder<any>(
+        notionMock,
+        databaseId,
+        modelName,
+        relationMappings,
+        propertyMappings,
+        propertyTypes
+      );
+      
+      await expect(
+        qb.addSelectOptions(
+          "titleField", // タイトルフィールド（Select/MultiSelectではない）
+          [{ name: "新しいオプション", color: "green" }]
+        )
+      ).rejects.toThrow(/Select\/MultiSelectタイプではありません/);
+    });
+    
+    it("NotionClientを使用する場合もオプションを追加できること", async () => {
+      const mockNotionClient = {
+        addPropertyOptions: jest.fn().mockResolvedValue(undefined)
+      } as unknown as NotionClient;
+      
+      const qb = new QueryBuilder<any>(
+        mockNotionClient,
+        databaseId,
+        modelName,
+        relationMappings,
+        propertyMappings,
+        propertyTypes
+      );
+      
+      await qb.addSelectOptions(
+        "statusField",
+        [{ name: "新しいオプション", color: "green" }]
+      );
+      
+      expect(mockNotionClient.addPropertyOptions).toHaveBeenCalledWith(
+        databaseId,
+        expect.any(String),
+        NotionPropertyTypes.Select,
+        [{ name: "新しいオプション", color: "green" }]
+      );
     });
   });
 });
