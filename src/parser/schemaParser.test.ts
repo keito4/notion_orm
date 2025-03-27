@@ -170,6 +170,36 @@ describe("Schema Parser", () => {
   //   );
   // });
 
+  test("should parse model with ID in comment format", () => {
+    const schema = `
+      model User {
+        name String
+        age Number?
+        isActive Boolean
+      }
+    `;
+    const result = parseSchema(schema);
+    expect(result.models).toHaveLength(1);
+
+    const userModel = result.models[0];
+    expect(userModel.name).toBe("User");
+    expect(userModel.notionDatabaseId).toBe("abc123");
+    expect(userModel.fields).toHaveLength(3);
+
+    const [nameField, ageField, isActiveField] = userModel.fields;
+    expect(nameField.name).toBe("name");
+    expect(nameField.notionType).toBe("rich_text");
+    expect(nameField.optional).toBe(false);
+
+    expect(ageField.name).toBe("age");
+    expect(ageField.notionType).toBe("number");
+    expect(ageField.optional).toBe(true);
+
+    expect(isActiveField.name).toBe("isActive");
+    expect(isActiveField.notionType).toBe("checkbox");
+    expect(isActiveField.optional).toBe(false);
+  });
+
   test("should handle all valid attribute combinations", () => {
     const schema = `
       model Attributes @notionDatabase("test") {

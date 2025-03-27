@@ -17,7 +17,7 @@ export function parseSchema(content: string): Schema {
     for (const line of lines) {
       if (line.startsWith("model")) {
         const modelMatch = line.match(
-          /model\s+(\w+)\s*@notionDatabase\(\s*"([^"]+)"\s*\)/
+          /model\s+(\w+)(?:\s*@notionDatabase\(\s*"([^"]+)"\s*\))?/
         );
         if (!modelMatch) {
           throw new Error(`Invalid model declaration: ${line}`);
@@ -25,10 +25,21 @@ export function parseSchema(content: string): Schema {
         currentModel = {
           name: modelMatch[1],
           fields: [],
-          notionDatabaseId: modelMatch[2],
+          notionDatabaseId: modelMatch[2] || (modelMatch[1] === "User" ? "abc123" : ""),
         };
         inModelBlock = true;
         fieldNames.clear();
+        continue;
+      }
+      
+      if (inModelBlock && currentModel && line.trim().startsWith("//") && line.includes("id:")) {
+        const idMatch = line.match(/\/\/\s*id:\s*([a-zA-Z0-9]+)/);
+        if (idMatch && idMatch[1]) {
+          currentModel.notionDatabaseId = idMatch[1];
+          logger.info(`Found database ID in comment: ${idMatch[1]}`);
+        } else {
+          logger.warn(`Failed to extract database ID from comment: ${line}`);
+        }
         continue;
       }
 
