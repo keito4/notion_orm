@@ -42,10 +42,10 @@ export async function generateTypes(): Promise<void> {
   }
 }
 
-export async function createDatabases(parentPageId: string): Promise<void> {
+export async function createDatabases(parentPageId: string, schemaPath: string = "schema.prisma", outputPath: string = "output.prisma"): Promise<void> {
   try {
-    logger.info("スキーマファイルを読み込んでいます...");
-    const schemaContent = readFileSync("schema.prisma", "utf-8");
+    logger.info(`スキーマファイル ${schemaPath} を読み込んでいます...`);
+    const schemaContent = readFileSync(schemaPath, "utf-8");
 
     logger.info("スキーマを解析しています...");
     const schema = parseSchema(schemaContent);
@@ -183,9 +183,9 @@ export async function createDatabases(parentPageId: string): Promise<void> {
     }
     
     const { writeFileSync } = require("fs");
-    writeFileSync("output.prisma", outputSchema, "utf-8");
+    writeFileSync(outputPath, outputSchema, "utf-8");
     
-    logger.success("output.prismaファイルを生成しました");
+    logger.success(`${outputPath}ファイルを生成しました`);
     logger.success("すべてのデータベースを作成しました");
   } catch (error) {
     logger.error("データベース作成中にエラーが発生しました:", error);
@@ -217,9 +217,11 @@ program
   .command("create-databases")
   .description("スキーマからNotionデータベースを作成")
   .requiredOption("-p, --parent <id>", "データベースを作成する親ページID")
+  .option("-s, --schema <path>", "スキーマファイルのパス", "schema.prisma")
+  .option("-o, --output <path>", "出力スキーマファイルのパス", "output.prisma")
   .action(async (options) => {
     try {
-      await createDatabases(options.parent);
+      await createDatabases(options.parent, options.schema, options.output);
       logger.success("データベースの作成に成功しました");
     } catch (error) {
       logger.error("データベース作成に失敗しました:", error);
