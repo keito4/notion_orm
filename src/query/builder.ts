@@ -1,5 +1,7 @@
 import { Client } from "@notionhq/client";
+import type { DatabaseObjectResponse, UpdateDatabaseParameters } from "@notionhq/client/build/src/api-endpoints";
 import { NotionPropertyTypes } from "../types/notionTypes";
+import { NotionClient } from "../notion/client";
 import { logger } from "../utils/logger";
 
 export type FilterOperator =
@@ -885,5 +887,88 @@ export class QueryBuilder<T> {
         }
       })
       .join("\n");
+  }
+
+  /**
+   * データベースのセレクタまたはマルチセレクタプロパティに新しいオプションを追加します
+   * @param propertyName オプションを追加するプロパティ名
+   * @param options 追加するオプションの配列（name必須、colorオプション）
+   * @returns 更新されたQueryBuilderインスタンス
+   */
+  public async addSelectOptions(
+    propertyName: string,
+    options: { name: string; color?: string }[]
+  ): Promise<QueryBuilder<T>> {
+    try {
+      const notionPropertyName = this.getNotionPropertyName(this.modelName, propertyName);
+      const propertyType = this.getPropertyTypeFromModel(propertyName);
+      
+      if (
+        propertyType !== NotionPropertyTypes.Select &&
+        propertyType !== NotionPropertyTypes.MultiSelect
+      ) {
+        throw new Error(
+          `プロパティ '${propertyName}' はSelect/MultiSelectタイプではありません (実際: ${propertyType})`
+        );
+      }
+      
+      const response = await this.notion.databases.retrieve({
+        database_id: this.databaseId,
+      });
+      
+      const propertyId = response.properties[notionPropertyName].id;
+      
+      if (this.notion instanceof NotionClient) {
+        await this.notion.addPropertyOptions(
+          this.databaseId,
+          propertyId,
+          propertyType,
+          options
+        );
+      } else {
+        const property = response.properties[notionPropertyName] as any;
+        const existingOptions = propertyType === NotionPropertyTypes.Select
+          ? property.select?.options || []
+          : property.multi_select?.options || [];
+          
+        const newOptions = [...existingOptions];
+        
+        for (const option of options) {
+          if (!newOptions.some((o) => o.name === option.name)) {
+            newOptions.push({
+              name: option.name,
+              color: option.color || "default",
+            });
+          }
+        }
+        
+        const propertyUpdate: UpdateDatabaseParameters["properties"] = {
+          [notionPropertyName]: {
+            [propertyType === NotionPropertyTypes.Select ? "select" : "multi_select"]: {
+              options: newOptions,
+            },
+          } as any,
+        };
+        
+        await this.notion.databases.update({
+          database_id: this.databaseId,
+          properties: propertyUpdate,
+        });
+      }
+      
+      if (this.isDebugMode) {
+        logger.debug(
+          `データベース ${this.databaseId} のプロパティ '${propertyName}' に ${options.length} 個のオプションを追加しました`
+        );
+      }
+      
+      return this;
+    } catch (error: any) {
+      logger.error(
+        `セレクトオプション追加中にエラーが発生しました: ${error.message}`,
+        error
+      );
+      throw error;
+    }
   }
 }

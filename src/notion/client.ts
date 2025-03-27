@@ -1,4 +1,5 @@
 import { Client } from "@notionhq/client";
+import type { UpdateDatabaseParameters } from "@notionhq/client/build/src/api-endpoints";
 import { Schema, Model } from "../types";
 import {
   NotionPropertyTypes,
@@ -174,14 +175,93 @@ export class NotionClient {
   }
 
   private getPropertyOptions(
-    property: NotionDatabaseProperty
+    property: any
   ): NotionSelectOption[] {
     if (property.type === NotionPropertyTypes.Select) {
-      return (property as NotionSelectProperty).select.options || [];
+      return property.select?.options?.map((opt: any) => ({
+        id: opt.id || "",
+        name: opt.name,
+        color: opt.color || "default"
+      })) || [];
     } else if (property.type === NotionPropertyTypes.MultiSelect) {
-      return (property as NotionMultiSelectProperty).multi_select.options || [];
+      return property.multi_select?.options?.map((opt: any) => ({
+        id: opt.id || "",
+        name: opt.name,
+        color: opt.color || "default"
+      })) || [];
     }
     return [];
+  }
+
+  async addPropertyOptions(
+    databaseId: string,
+    propertyId: string,
+    propertyType: NotionPropertyTypes.Select | NotionPropertyTypes.MultiSelect,
+    options: { name: string; color?: string }[]
+  ): Promise<void> {
+    try {
+      const database = await this.retryOperation(async () =>
+        this.client.databases.retrieve({ database_id: databaseId })
+      );
+      
+      const propertyName = Object.keys(database.properties).find(
+        (key) => database.properties[key].id === propertyId
+      );
+      
+      if (!propertyName) {
+        throw new Error(`プロパティID${propertyId}が見つかりません`);
+      }
+      
+      const property = database.properties[propertyName];
+      
+      if (property.type !== propertyType) {
+        throw new Error(
+          `プロパティ${propertyName}のタイプが${propertyType}ではありません (実際: ${property.type})`
+        );
+      }
+      
+      const existingOptions = this.getPropertyOptions(property);
+      const newOptions = [...existingOptions];
+      
+      for (const option of options) {
+        if (!newOptions.some((o) => o.name === option.name)) {
+          newOptions.push({
+            id: "",  // 新規オプションのためIDは空文字列
+            name: option.name,
+            color: option.color || "default",
+          } as NotionSelectOption);
+        }
+      }
+      
+      const propertyUpdate: UpdateDatabaseParameters["properties"] = {
+        [propertyName]: {
+          [propertyType === NotionPropertyTypes.Select ? "select" : "multi_select"]: {
+            options: newOptions.map(opt => ({
+              name: opt.name,
+              color: opt.color || "default"
+            })),
+          },
+          type: propertyType,
+        } as any,
+      };
+      
+      await this.retryOperation(async () =>
+        this.client.databases.update({
+          database_id: databaseId,
+          properties: propertyUpdate,
+        })
+      );
+      
+      logger.debug(
+        `データベース ${databaseId} のプロパティ ${propertyName} に ${options.length} 個のオプションを追加しました`
+      );
+    } catch (error: any) {
+      logger.error(
+        `オプション追加中にエラーが発生しました: ${error.message}`,
+        error
+      );
+      throw error;
+    }
   }
 
   private convertToNotionProperty(apiProperty: any): NotionDatabaseProperty {
