@@ -129,6 +129,40 @@ export async function createDatabases(parentPageId: string): Promise<void> {
       }
     }
 
+    logger.info("output.prismaファイルを生成しています...");
+    
+    const originalSchema = readFileSync("schema.prisma", "utf-8");
+    
+    let outputSchema = originalSchema;
+    
+    for (const model of schema.models) {
+      const databaseId = createdDatabases.get(model.name);
+      if (databaseId) {
+        const modelRegex = new RegExp(`model\\s+${model.name}\\s+{[^}]*}`, "s");
+        
+        const attrRegex = new RegExp(`@notionDatabase\\([^)]*\\)`, "g");
+        
+        const modelMatch = outputSchema.match(modelRegex);
+        
+        if (modelMatch) {
+          let modelDef = modelMatch[0];
+          
+          if (modelDef.match(attrRegex)) {
+            modelDef = modelDef.replace(attrRegex, `@notionDatabase("${databaseId}")`);
+          } else {
+            const modelNameLine = new RegExp(`model\\s+${model.name}\\s+{`, "");
+            modelDef = modelDef.replace(modelNameLine, `$& @notionDatabase("${databaseId}")`);
+          }
+          
+          outputSchema = outputSchema.replace(modelRegex, modelDef);
+        }
+      }
+    }
+    
+    const { writeFileSync } = require("fs");
+    writeFileSync("output.prisma", outputSchema, "utf-8");
+    
+    logger.success("output.prismaファイルを生成しました");
     logger.success("すべてのデータベースを作成しました");
   } catch (error) {
     logger.error("データベース作成中にエラーが発生しました:", error);
