@@ -16,10 +16,22 @@ export function generateDatabaseProperties(model: Model): Record<string, any> {
     throw new Error(`モデル ${model.name} にタイトルフィールドが見つかりません。@title 属性を持つフィールドが必要です。`);
   }
   
-  for (const field of model.fields) {
+  for (const field of model.fields.filter(f => f.notionType !== NotionPropertyTypes.Relation)) {
     const propertyName = field.notionName || field.name;
     const propertyDefinition = createPropertyDefinition(field);
     properties[propertyName] = propertyDefinition;
+  }
+  
+  for (const field of model.fields.filter(f => f.notionType === NotionPropertyTypes.Relation)) {
+    const propertyName = field.notionName || field.name;
+    
+    const relationAttr = field.attributes.find(attr => attr.startsWith("@relation"));
+    
+    properties[propertyName] = {
+      relation: {
+        single_property: {}
+      }
+    };
   }
   
   return properties;
@@ -63,11 +75,20 @@ function createPropertyDefinition(field: Field): any {
     case NotionPropertyTypes.People:
       return { people: {} };
     
-    case NotionPropertyTypes.Relation:
-      return { relation: { database_id: null } };
-    
     case NotionPropertyTypes.Formula:
       return { formula: { expression: "" } };
+    
+    case NotionPropertyTypes.CreatedTime:
+      return { created_time: {} };
+    
+    case NotionPropertyTypes.CreatedBy:
+      return { created_by: {} };
+    
+    case NotionPropertyTypes.LastEditedTime:
+      return { last_edited_time: {} };
+    
+    case NotionPropertyTypes.LastEditedBy:
+      return { last_edited_by: {} };
     
     default:
       logger.warn(`未知のNotionプロパティタイプ: ${field.notionType}、リッチテキストとして扱います`);
