@@ -29,6 +29,16 @@ const mockDatabaseResponse = {
           { id: "opt_1", name: "既存オプション", color: "blue" }
         ]
       }
+    },
+    "テストマルチセレクト": {
+      id: "prop_2",
+      name: "テストマルチセレクト",
+      type: "multi_select",
+      multi_select: {
+        options: [
+          { id: "opt_2", name: "既存オプション", color: "red" }
+        ]
+      }
     }
   },
   parent: { type: "workspace", workspace: true },
@@ -36,15 +46,15 @@ const mockDatabaseResponse = {
   is_inline: false
 } as unknown as GetDatabaseResponse;
 
-const mockRetrieve = jest.fn().mockResolvedValue(mockDatabaseResponse);
-const mockUpdate = jest.fn().mockResolvedValue(mockDatabaseResponse);
-const mockList = jest.fn().mockResolvedValue({
+const mockRetrieve = jest.fn().mockImplementation(() => Promise.resolve(mockDatabaseResponse));
+const mockUpdate = jest.fn().mockImplementation(() => Promise.resolve(mockDatabaseResponse));
+const mockList = jest.fn().mockImplementation(() => Promise.resolve({
   results: [],
   has_more: false,
   next_cursor: null,
   type: "list_users_response",
   object: "list"
-});
+}));
 
 jest.mock("@notionhq/client", () => ({
   Client: jest.fn().mockImplementation(() => ({
@@ -110,7 +120,7 @@ describe("NotionClient", () => {
     });
 
     it("不正なプロパティタイプでエラーを投げること", async () => {
-      mockRetrieve.mockResolvedValueOnce({
+      mockRetrieve.mockImplementationOnce(() => Promise.resolve({
         object: "database",
         id: "db_1",
         created_time: "2024-03-27T00:00:00.000Z",
@@ -131,7 +141,7 @@ describe("NotionClient", () => {
         parent: { type: "workspace", workspace: true },
         archived: false,
         is_inline: false
-      } as unknown as GetDatabaseResponse);
+      } as unknown as GetDatabaseResponse));
 
       await expect(
         client.addPropertyOptions(

@@ -1,5 +1,6 @@
 import { Schema, Model, Field } from "../types";
 import { NotionPropertyTypes } from "../types/notionTypes";
+import { NotionSelectOption } from "../types/notionTypes";
 import { logger } from "../utils/logger";
 
 export function parseSchema(content: string): Schema {
@@ -95,6 +96,17 @@ export function parseSchema(content: string): Schema {
             optional,
             attributes,
           };
+          
+          if (
+            notionPropertyType === NotionPropertyTypes.Select ||
+            notionPropertyType === NotionPropertyTypes.MultiSelect
+          ) {
+            const selectOptionsAttr = attributes.find(attr => attr.startsWith('@select_options'));
+            if (selectOptionsAttr) {
+              field.selectOptions = parseSelectOptions(selectOptionsAttr);
+              logger.info(`フィールド "${originalName}" に ${field.selectOptions.length} 個のセレクトオプションを設定しました`);
+            }
+          }
 
           currentModel.fields.push(field);
         }
@@ -111,6 +123,38 @@ export function parseSchema(content: string): Schema {
   } catch (error) {
     logger.error("Error parsing schema:", error);
     throw error;
+  }
+}
+
+function parseSelectOptions(attribute: string): Array<{ name: string; color?: string }> {
+  try {
+    const optionsMatch = attribute.match(/@select_options\(\s*(\[.*\])\s*\)/);
+    if (!optionsMatch || !optionsMatch[1]) {
+      return [];
+    }
+
+    const optionsStr = optionsMatch[1].replace(/'/g, '"');
+    try {
+      if (optionsStr.includes('"') && !optionsStr.includes('{')) {
+        const simpleOptions = JSON.parse(optionsStr);
+        return simpleOptions.map((name: string) => ({
+          name,
+          color: "default"
+        }));
+      }
+      
+      const objectOptionsStr = optionsStr
+        .replace(/(\w+):/g, '"$1":') // プロパティ名をクォートで囲む
+        .replace(/,\s*}/g, '}'); // 末尾のカンマを修正
+      
+      return JSON.parse(objectOptionsStr);
+    } catch (jsonError) {
+      logger.error(`セレクトオプションのJSONパースエラー: ${jsonError}`);
+      return [];
+    }
+  } catch (error) {
+    logger.error(`セレクトオプションの解析エラー: ${error}`);
+    return [];
   }
 }
 

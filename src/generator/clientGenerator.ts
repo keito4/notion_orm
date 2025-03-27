@@ -137,6 +137,69 @@ export class NotionOrmClient {
 
   constructor(apiKey: string) {
     this.notion = new Client({ auth: apiKey });
+    this.initializeSelectOptions();
+  }
+
+  private async initializeSelectOptions(): Promise<void> {
+    try {
+      for (const modelName of Object.keys(this.propertyMappings)) {
+        const databaseId = this.findDatabaseIdForModel(modelName);
+        if (databaseId) {
+          await this.initializeModelSelectOptions(databaseId, modelName);
+        }
+      }
+    } catch (error) {
+      console.error("セレクトオプション初期化中にエラーが発生しました:", error);
+    }
+  }
+
+  private findDatabaseIdForModel(modelName: string): string | undefined {
+    for (const model of Object.keys(this.relationMappings)) {
+      if (model === modelName) {
+        return this.findModelSettings(modelName)?.notionDatabaseId;
+      }
+    }
+    return undefined;
+  }
+
+  private findModelSettings(modelName: string): any {
+    try {
+      return eval(modelName + "ModelSettings");
+    } catch (error) {
+      console.error("モデル設定の取得に失敗しました: " + modelName, error);
+      return null;
+    }
+  }
+
+  private async initializeModelSelectOptions(databaseId: string, modelName: string): Promise<void> {
+    const modelSettings = this.findModelSettings(modelName);
+    if (!modelSettings || !modelSettings.selectOptions) return;
+
+    for (const [fieldName, options] of Object.entries(modelSettings.selectOptions)) {
+      const propertyType = this.propertyTypes[modelName][fieldName];
+      
+      if (
+        propertyType === NotionPropertyTypes.Select || 
+        propertyType === NotionPropertyTypes.MultiSelect
+      ) {
+        try {
+          const qb = new QueryBuilder(
+            this.notion,
+            databaseId,
+            modelName,
+            this.relationMappings,
+            this.propertyMappings,
+            this.propertyTypes,
+            this.relationModels
+          );
+          
+          await qb.addSelectOptions(fieldName, options);
+          console.log(modelName + "." + fieldName + "のセレクトオプションを初期化しました");
+        } catch (error) {
+          console.error(modelName + "." + fieldName + "のセレクトオプション初期化中にエラー:", error);
+        }
+      }
+    }
   }
 
   ${schema.models
@@ -255,6 +318,12 @@ export const ${model.name}ModelSettings = {
       )
       .join(",\n    ")}
   },
+  ${model.fields.some(field => field.selectOptions && field.selectOptions.length > 0) ? `selectOptions: {
+    ${model.fields
+      .filter(field => field.selectOptions && field.selectOptions.length > 0)
+      .map(field => `${field.name}: ${JSON.stringify(field.selectOptions)}`)
+      .join(",\n    ")}
+  },` : ''}
 };
 `.trim();
 }

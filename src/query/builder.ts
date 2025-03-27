@@ -52,7 +52,7 @@ export class QueryBuilder<T> {
   private isDebugMode: boolean = typeof process !== 'undefined' && process.env.DEBUG === "true";
 
   constructor(
-    private notion: Client,
+    private notion: Client | NotionClient,
     public databaseId: string,
     private modelName: string,
     private relationMappings: Record<string, Record<string, string>> = {},
@@ -423,8 +423,11 @@ export class QueryBuilder<T> {
         database_id: this.databaseId,
       };
       let results: any;
+      
+      const client = this.getNotionClient();
+      
       if (this.idFilter) {
-        const response = await this.notion.pages.retrieve({
+        const response = await client.pages.retrieve({
           page_id: this.idFilter,
         });
         results = [response];
@@ -442,10 +445,10 @@ export class QueryBuilder<T> {
         if (this.isDebugMode) {
           logger.debug("最終的なクエリ:", JSON.stringify(query, null, 2));
         }
-        const response = await this.notion.databases.query(query);
+        const response = await client.databases.query(query);
         results = response.results;
       } else {
-        const response = await this.notion.databases.query({
+        const response = await client.databases.query({
           database_id: this.databaseId,
         });
         results = response.results;
@@ -457,7 +460,7 @@ export class QueryBuilder<T> {
       for (const page of results) {
         const mapped = this.mapResponseToModel(page);
         if (includePageContent) {
-          const blocksResponse = await this.notion.blocks.children.list({
+          const blocksResponse = await client.blocks.children.list({
             block_id: page.id,
           });
           (mapped as any).pageContent = this.extractMarkdownFromBlocks(
@@ -477,6 +480,13 @@ export class QueryBuilder<T> {
       }
       throw error;
     }
+  }
+  
+  private getNotionClient(): Client {
+    if (this.notion instanceof NotionClient) {
+      return this.notion.client;
+    }
+    return this.notion as Client;
   }
 
   private buildSortCondition(sort: SortCondition): any {
@@ -605,11 +615,24 @@ export class QueryBuilder<T> {
           `リレーションデータをNotionから取得: id=${id}, modelName=${modelName}`
         );
       }
-      const response = await this.notion.pages.retrieve({ page_id: id });
+      
+      let response;
+      let blocksResponse;
+      
+      if (this.notion instanceof NotionClient) {
+        const client = (this.notion as any).client;
+        response = await client.pages.retrieve({ page_id: id });
+        blocksResponse = await client.blocks.children.list({
+          block_id: id,
+        });
+      } else {
+        response = await (this.notion as Client).pages.retrieve({ page_id: id });
+        blocksResponse = await (this.notion as Client).blocks.children.list({
+          block_id: id,
+        });
+      }
+      
       const mappedData = this.mapResponseToModel(response);
-      const blocksResponse = await this.notion.blocks.children.list({
-        block_id: id,
-      });
       (mappedData as any).pageContent = blocksResponse.results;
       this.relationCache[cacheKey] = {
         data: mappedData,
@@ -760,7 +783,8 @@ export class QueryBuilder<T> {
     propertyDefinitions: Record<string, any>
   ): Promise<any> {
     try {
-      const response = await this.notion.databases.create({
+      const client = this.getNotionClient();
+      const response = await client.databases.create({
         parent: { page_id: parentPageId },
         title: [
           {
@@ -801,7 +825,8 @@ export class QueryBuilder<T> {
       if (newPropertyDefinitions) {
         payload.properties = newPropertyDefinitions;
       }
-      const response = await this.notion.databases.update({
+      const client = this.getNotionClient();
+      const response = await client.databases.update({
         database_id: databaseId,
         ...payload,
       });
@@ -821,7 +846,8 @@ export class QueryBuilder<T> {
   public async createPage(userProperties: Record<string, any>): Promise<any> {
     try {
       const properties = this.buildNotionProperties(userProperties);
-      const response = await this.notion.pages.create({
+      const client = this.getNotionClient();
+      const response = await client.pages.create({
         parent: { database_id: this.databaseId },
         properties,
       });
@@ -844,7 +870,8 @@ export class QueryBuilder<T> {
   ): Promise<any> {
     try {
       const properties = this.buildNotionProperties(userProperties);
-      const response = await this.notion.pages.update({
+      const client = this.getNotionClient();
+      const response = await client.pages.update({
         page_id: pageId,
         properties,
       });
@@ -912,20 +939,28 @@ export class QueryBuilder<T> {
         );
       }
       
-      const response = await this.notion.databases.retrieve({
-        database_id: this.databaseId,
-      });
-      
-      const propertyId = response.properties[notionPropertyName].id;
-      
       if (this.notion instanceof NotionClient) {
-        await this.notion.addPropertyOptions(
+        const notionClient = this.notion as NotionClient;
+        await notionClient.addPropertyOptions(
           this.databaseId,
-          propertyId,
+          notionPropertyName, // プロパティIDの代わりにプロパティ名を使用
+          propertyType,
+          options
+        );
+      } else if ('addPropertyOptions' in this.notion) {
+        const mockClient = this.notion as any;
+        await mockClient.addPropertyOptions(
+          this.databaseId,
+          notionPropertyName,
           propertyType,
           options
         );
       } else {
+        const client = this.getNotionClient();
+        const response = await client.databases.retrieve({
+          database_id: this.databaseId,
+        });
+        
         const property = response.properties[notionPropertyName] as any;
         const existingOptions = propertyType === NotionPropertyTypes.Select
           ? property.select?.options || []
@@ -950,7 +985,7 @@ export class QueryBuilder<T> {
           } as any,
         };
         
-        await this.notion.databases.update({
+        await client.databases.update({
           database_id: this.databaseId,
           properties: propertyUpdate,
         });

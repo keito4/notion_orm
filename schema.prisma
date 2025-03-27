@@ -67,3 +67,11 @@ model Timeline {
   display?    Boolean      @checkbox  @map("表示用")
   parentItem? Timeline[]   @relation  @map("Parent item")
 }
+
+model Example {
+  // id: abc123
+  name        String    @title        @map("Name")
+  status      String    @select       @map("Status")      @select_options(["新規", "進行中", "完了"])
+  priority    String    @select       @map("優先度")      @select_options([{name: "高", color: "red"}, {name: "中", color: "yellow"}, {name: "低", color: "green"}])
+  tags        String[]  @multi_select @map("タグ")        @select_options(["開発", "テスト", "デプロイ", "計画"])
+}

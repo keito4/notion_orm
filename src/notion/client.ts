@@ -15,15 +15,19 @@ const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1秒
 
 export class NotionClient {
-  private client: Client;
+  private _client: Client;
   private isInitialized: boolean = false;
+  
+  get client(): Client {
+    return this._client;
+  }
 
   constructor() {
     const apiKey = process.env.NOTION_API_KEY;
     if (!apiKey) {
       throw new Error("NOTION_API_KEY environment variable is required");
     }
-    this.client = new Client({
+    this._client = new Client({
       auth: apiKey,
       notionVersion: "2022-06-28",
     });
@@ -50,7 +54,7 @@ export class NotionClient {
   async validateConnection(): Promise<boolean> {
     try {
       await this.retryOperation(async () => {
-        await this.client.users.list({ page_size: 1 });
+        await this._client.users.list({ page_size: 1 });
       });
       this.isInitialized = true;
       return true;
@@ -103,7 +107,7 @@ export class NotionClient {
   ): Promise<void> {
     try {
       await this.retryOperation(async () => {
-        await this.client.databases.retrieve({ database_id: databaseId });
+        await this._client.databases.retrieve({ database_id: databaseId });
       });
     } catch (error: any) {
       if (error.code === "unauthorized") {
@@ -123,7 +127,7 @@ export class NotionClient {
   async getDatabaseSchema(databaseId: string): Promise<NotionDatabase> {
     try {
       const response = await this.retryOperation(async () =>
-        this.client.databases.retrieve({ database_id: databaseId })
+        this._client.databases.retrieve({ database_id: databaseId })
       );
       const properties = Object.entries(response.properties).reduce(
         (acc, [key, prop]) => {
@@ -201,7 +205,7 @@ export class NotionClient {
   ): Promise<void> {
     try {
       const database = await this.retryOperation(async () =>
-        this.client.databases.retrieve({ database_id: databaseId })
+        this._client.databases.retrieve({ database_id: databaseId })
       );
       
       const propertyName = Object.keys(database.properties).find(
@@ -246,7 +250,7 @@ export class NotionClient {
       };
       
       await this.retryOperation(async () =>
-        this.client.databases.update({
+        this._client.databases.update({
           database_id: databaseId,
           properties: propertyUpdate,
         })

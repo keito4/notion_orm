@@ -5,6 +5,12 @@ import { QueryBuilder } from "./builder";
 import { NotionPropertyTypes } from "../types/notionTypes";
 import { NotionClient } from "../notion/client";
 import { describe, it, beforeEach, expect, jest } from "@jest/globals";
+import { Client } from "@notionhq/client";
+import type { 
+  GetDatabaseResponse,
+  UpdateDatabaseResponse,
+  QueryDatabaseResponse
+} from "@notionhq/client/build/src/api-endpoints";
 
 describe("QueryBuilder", () => {
   let notionMock: any;
@@ -13,6 +19,8 @@ describe("QueryBuilder", () => {
     notionMock = {
       databases: {
         query: jest.fn(),
+        retrieve: jest.fn(),
+        update: jest.fn()
       },
       pages: {
         retrieve: jest.fn(),
@@ -299,7 +307,7 @@ describe("QueryBuilder", () => {
   
   describe("addSelectOptions", () => {
     beforeEach(() => {
-      notionMock.databases.retrieve = jest.fn().mockResolvedValue({
+      notionMock.databases.retrieve.mockResolvedValue({
         properties: {
           Status: {
             id: "prop_1",
@@ -313,7 +321,7 @@ describe("QueryBuilder", () => {
           }
         }
       });
-      notionMock.databases.update = jest.fn().mockResolvedValue({});
+      notionMock.databases.update.mockResolvedValue({});
     });
     
     it("セレクトプロパティにオプションを追加できること", async () => {
@@ -342,7 +350,7 @@ describe("QueryBuilder", () => {
       const originalPropertyType = propertyTypes.TestModel.statusField;
       propertyTypes.TestModel.statusField = NotionPropertyTypes.MultiSelect;
       
-      notionMock.databases.retrieve = jest.fn().mockResolvedValue({
+      notionMock.databases.retrieve.mockResolvedValue({
         properties: {
           Status: {
             id: "prop_1",
@@ -399,9 +407,50 @@ describe("QueryBuilder", () => {
     });
     
     it("NotionClientを使用する場合もオプションを追加できること", async () => {
-      const mockNotionClient = {
-        addPropertyOptions: jest.fn().mockResolvedValue(undefined)
-      } as unknown as NotionClient;
+      const mockClient = {
+        databases: {
+          retrieve: jest.fn().mockImplementation(() => Promise.resolve({
+            properties: {
+              Status: {
+                id: "prop_1",
+                name: "Status",
+                type: "select",
+                select: {
+                  options: [{ id: "opt_1", name: "既存オプション", color: "blue" }]
+                }
+              }
+            }
+          })),
+          update: jest.fn().mockImplementation(() => Promise.resolve({})),
+          query: jest.fn().mockImplementation(() => Promise.resolve({ results: [] }))
+        },
+        blocks: {
+          children: {
+            list: jest.fn().mockImplementation(() => Promise.resolve({ results: [] }))
+          }
+        },
+        pages: {
+          retrieve: jest.fn().mockImplementation(() => Promise.resolve({})),
+          create: jest.fn().mockImplementation(() => Promise.resolve({})),
+          update: jest.fn().mockImplementation(() => Promise.resolve({}))
+        }
+      };
+      
+      class MockNotionClient {
+        addPropertyOptions = jest.fn().mockImplementation(() => Promise.resolve());
+        
+        get client() {
+          return mockClient;
+        }
+        
+        constructor() {
+          Object.defineProperty(this, 'constructor', {
+            value: NotionClient
+          });
+        }
+      }
+      
+      const mockNotionClient = new MockNotionClient() as unknown as NotionClient;
       
       const qb = new QueryBuilder<any>(
         mockNotionClient,
@@ -423,6 +472,9 @@ describe("QueryBuilder", () => {
         NotionPropertyTypes.Select,
         [{ name: "新しいオプション", color: "green" }]
       );
+      
+      expect(mockClient.databases.retrieve).not.toHaveBeenCalled();
+      expect(mockClient.databases.update).not.toHaveBeenCalled();
     });
   });
 });

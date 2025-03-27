@@ -23,4 +23,5 @@ export interface Field {
   isArray: boolean;
   optional: boolean;
   attributes: string[];
+  selectOptions?: Array<{ name: string; color?: string }>;
 }
