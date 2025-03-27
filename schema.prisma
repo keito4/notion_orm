@@ -5,7 +5,8 @@ generator client {
   client   = "notionClient.ts"
 }
 
-model Action @notionDatabase("***REMOVED***") {
+model Action {
+  // id: ***REMOVED***
   name       String       @title      @map("アクション")
   manager    Json         @people     @map("担当者")
   completed  Boolean      @checkbox   @map("完了")
@@ -18,7 +19,8 @@ model Action @notionDatabase("***REMOVED***") {
   output     String       @richText   @map("アウトプット")
 }
 
-model Objective @notionDatabase("***REMOVED***") {
+model Objective {
+  // id: ***REMOVED***
   name              String      @title     @map("Name")
   completed         Boolean?    @checkbox  @map("完了")
   emphasized        Boolean?    @checkbox  @map("注力")
@@ -34,7 +36,8 @@ model Objective @notionDatabase("***REMOVED***") {
   actionProgress    String?     @formula   @map("Action進行度")
 }
 
-model Document @notionDatabase("***REMOVED***") {
+model Document {
+  // id: ***REMOVED***
   name             String      @title        @map("Name")
   domain           Domain[]    @relation     @map("Domain")
   subDomainCand?   String[]    @multiSelect  @map("サブドメイン候補")
@@ -42,7 +45,8 @@ model Document @notionDatabase("***REMOVED***") {
   createdBy?       Json?       @createdBy    @map("作成者")
 }
 
-model Domain @notionDatabase("***REMOVED***") {
+model Domain {
+  // id: ***REMOVED***
   name             String        @title     @map("Name")
   description?     String        @richText  @map("description")
   archive?         Boolean       @checkbox  @map("Archive")
@@ -53,7 +57,8 @@ model Domain @notionDatabase("***REMOVED***") {
 }
 
 
-model Timeline @notionDatabase("353adc9979f641559ae12fb91660beeb") {
+model Timeline {
+  // id: 353adc9979f641559ae12fb91660beeb
   name        String       @title     @map("Name")
   subItem     Timeline[]   @relation  @map("Sub-item")
   objective   Objective[]  @relation  @map("OYKOT OKR")
