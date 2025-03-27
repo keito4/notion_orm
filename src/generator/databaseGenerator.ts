@@ -22,17 +22,6 @@ export function generateDatabaseProperties(model: Model): Record<string, any> {
     properties[propertyName] = propertyDefinition;
   }
   
-  for (const field of model.fields.filter(f => f.notionType === NotionPropertyTypes.Relation)) {
-    const propertyName = field.notionName || field.name;
-    
-    const relationAttr = field.attributes.find(attr => attr.startsWith("@relation"));
-    
-    properties[propertyName] = {
-      relation: {
-        single_property: {}
-      }
-    };
-  }
   
   return properties;
 }

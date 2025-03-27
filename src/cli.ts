@@ -63,7 +63,11 @@ export async function createDatabases(parentPageId: string): Promise<void> {
     logger.info("スキーマからデータベースを作成しています...");
     const createdDatabases = new Map<string, string>();
     
-    for (const model of schema.models) {
+    const modelsWithoutRelations = schema.models.filter(
+      model => !model.fields.some(f => f.notionType === NotionPropertyTypes.Relation)
+    );
+    
+    for (const model of modelsWithoutRelations) {
       logger.info(`モデル ${model.name} のデータベースを作成しています...`);
       
       const propertyDefinitions = generateDatabaseProperties(model);
@@ -85,26 +89,44 @@ export async function createDatabases(parentPageId: string): Promise<void> {
       logger.success(`データベース「${model.name}」を作成しました。ID: ${response.id}`);
     }
     
-    logger.info("リレーションプロパティを更新しています...");
+    const modelsWithRelations = schema.models.filter(
+      model => model.fields.some(f => f.notionType === NotionPropertyTypes.Relation)
+    );
     
-    for (const model of schema.models) {
+    for (const model of modelsWithRelations) {
+      logger.info(`モデル ${model.name} のデータベースを作成しています...`);
+      
       const relationFields = model.fields.filter(f => f.notionType === NotionPropertyTypes.Relation);
+      const nonRelationFields = model.fields.filter(f => f.notionType !== NotionPropertyTypes.Relation);
+      
+      const tempModel = {
+        ...model,
+        fields: nonRelationFields
+      };
+      
+      const propertyDefinitions = generateDatabaseProperties(tempModel);
+      
+      const queryBuilder = new QueryBuilder(
+        notionClient,
+        "",  // 新規作成なのでデータベースIDは空
+        model.name
+      );
+      
+      const response = await queryBuilder.createDatabase(
+        parentPageId,
+        model.name,
+        propertyDefinitions
+      );
+      
+      createdDatabases.set(model.name, response.id);
+      
+      logger.success(`データベース「${model.name}」を作成しました。ID: ${response.id}`);
       
       if (relationFields.length > 0) {
-        logger.info(`モデル ${model.name} のリレーションを更新しています...`);
-        
-        const databaseId = createdDatabases.get(model.name);
-        if (!databaseId) {
-          logger.warn(`モデル ${model.name} のデータベースIDが見つかりません。スキップします。`);
-          continue;
-        }
-        
         const updates: Record<string, any> = {};
         
         for (const field of relationFields) {
           const propertyName = field.notionName || field.name;
-          const relationAttr = field.attributes.find(attr => attr.startsWith("@relation"));
-          
           const targetModelName = field.type.replace(/\[\]$/, ""); // 配列型の場合は[]を削除
           const targetDatabaseId = createdDatabases.get(targetModelName);
           
@@ -121,13 +143,14 @@ export async function createDatabases(parentPageId: string): Promise<void> {
         
         if (Object.keys(updates).length > 0) {
           await notionClient.databases.update({
-            database_id: databaseId,
+            database_id: response.id,
             properties: updates
           });
           logger.success(`データベース「${model.name}」のリレーションを更新しました`);
         }
       }
     }
+    
 
     logger.info("output.prismaファイルを生成しています...");
     
