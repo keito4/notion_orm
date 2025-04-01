@@ -154,6 +154,8 @@ export class SyncManager {
         return NotionPropertyTypes.People;
       case "created_by":
         return NotionPropertyTypes.CreatedBy;
+      case "select":
+        return NotionPropertyTypes.Select;
       case "multi_select":
         return NotionPropertyTypes.MultiSelect;
       case "relation":
