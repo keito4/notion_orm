@@ -5,6 +5,7 @@ import { parseSchema } from "./parser/schemaParser";
 import { generateTypeDefinitions } from "./generator/typeGenerator";
 import { generateClient } from "./generator/clientGenerator";
 import { generateDatabaseProperties } from "./generator/databaseGenerator";
+import { generatePrismaSchema } from "./generator/prismaGenerator";
 import { NotionClient } from "./notion/client";
 import { SyncManager } from "./sync/manager";
 import { logger } from "./utils/logger";
@@ -225,6 +226,27 @@ program
       logger.success("データベースの作成に成功しました");
     } catch (error) {
       logger.error("データベース作成に失敗しました:", error);
+      typeof process !== 'undefined' && process.exit(1);
+    }
+  });
+
+program
+  .command("export")
+  .description("Export Prisma schema with database IDs as comments")
+  .action(async () => {
+    try {
+      logger.info("Reading schema file...");
+      const schemaContent = readFileSync("schema.prisma", "utf-8");
+
+      logger.info("Parsing schema...");
+      const schema = parseSchema(schemaContent);
+
+      logger.info("Generating Prisma schema with database IDs as comments...");
+      await generatePrismaSchema(schema);
+      
+      logger.success("Successfully exported Prisma schema");
+    } catch (error) {
+      logger.error("Failed to export Prisma schema:", error);
       typeof process !== 'undefined' && process.exit(1);
     }
   });
