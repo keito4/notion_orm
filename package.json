@@ -36,7 +36,7 @@
     "chalk": "^5.4.1",
     "commander": "^12.1.0",
     "jest": "^29.7.0",
-    "notionmodelsync": "^1.0.5",
+    "notionmodelsync": "file:.",
     "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2"
   },
