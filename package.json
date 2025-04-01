@@ -16,6 +16,7 @@
     "test": "jest",
     "lint": "eslint .",
     "generate": "ts-node src/cli.ts generate",
+    "create-databases": "ts-node src/cli.ts create-databases",
     "build": "tsc",
     "publish": "npm run build && npm publish",
     "test:export": "node scripts/test-export.js"
