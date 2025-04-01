@@ -7,39 +7,39 @@ generator client {
 
 model Action {
   // id: 398ed17368ec497e9638af2c4d53bec9
-  name       String       @title      @map("アクション")
-  manager    Json         @people     @map("担当者")
-  completed  Boolean      @checkbox   @map("完了")
+  name      String  @map("アクション") @title
+  manager   Json    @map("担当者") @people
+  completed Boolean @map("完了") @checkbox
 
-  objective  Objective[]  @relation   @map("Objective")
-  dayOfWeek  String[]     @multiSelect @map("曜日")
-  date       DateTime?    @date       @map("Date")
-  connection String[]     @multiSelect @map("連携先")
-  timeline   Timeline[]   @relation   @map("Timeline")
-  output     String       @richText   @map("アウトプット")
+  objective  Objective[] @map("Objective") @relation
+  dayOfWeek  String[]    @map("曜日") @multiSelect
+  date       DateTime?   @map("Date") @date
+  connection String[]    @map("連携先") @multiSelect
+  timeline   Timeline[]  @map("Timeline") @relation
+  output     String      @map("アウトプット") @richText
 }
 
 model Objective {
   // id: aac810fcb3414dbb9c46ce485bc6449b
-  name              String      @title     @map("Name")
-  completed         Boolean?    @checkbox  @map("完了")
-  emphasized        Boolean?    @checkbox  @map("注力")
-  subItem           Objective[] @relation  @map("Sub-item")
-  similarPage       String[]    @relation  @map("似てるページ")
-  date              String?     @date      @map("日付")
-  manager           Json?       @people    @map("責任者")
-  archived          Boolean?    @checkbox  @map("アーカイブ")
-  oykotTimeline     String[]    @relation  @map("OYKOT Timeline")
-  action            String[]    @relation  @map("Action")
-  objectiveProgress String?     @formula   @map("Objective進行度")
-  parentItem        Objective[] @relation  @map("Parent item")
-  actionProgress    String?     @formula   @map("Action進行度")
+  name              String      @map("Name") @title
+  completed         Boolean?    @map("完了") @checkbox
+  emphasized        Boolean?    @map("注力") @checkbox
+  subItem           Objective[] @map("Sub-item") @relation
+  similarPage       String[]    @map("似てるページ") @relation
+  date              String?     @map("日付") @date
+  manager           Json?       @map("責任者") @people
+  archived          Boolean?    @map("アーカイブ") @checkbox
+  oykotTimeline     String[]    @map("OYKOT Timeline") @relation
+  action            String[]    @map("Action") @relation
+  objectiveProgress String?     @map("Objective進行度") @formula
+  parentItem        Objective[] @map("Parent item") @relation
+  actionProgress    String?     @map("Action進行度") @formula
 }
 
 model Document {
   // id: 13f70a52207f80d58f64cdc627123f87
-  name             String      @title        @map("Name")
-  domain           Domain[]    @relation     @map("Domain")
+  name   String   @map("Name") @title
+  domain Domain[] @map("Domain") @relation
   subDomainCand?   String[]    @multiSelect  @map("サブドメイン候補")
   createdAt?       DateTime?   @createdTime  @map("作成日時")
   createdBy?       Json?       @createdBy    @map("作成者")
@@ -47,7 +47,7 @@ model Document {
 
 model Domain {
   // id: f6e300b8598e42208a2c163444655842
-  name             String        @title     @map("Name")
+  name String @map("Name") @title
   description?     String        @richText  @map("description")
   archive?         Boolean       @checkbox  @map("Archive")
   person?          Json          @people    @map("Person")
@@ -56,12 +56,11 @@ model Domain {
   documents?       Document[]    @relation  @map("🏖️ 議事録")
 }
 
-
 model Timeline {
   // id: 353adc9979f641559ae12fb91660beeb
-  name        String       @title     @map("Name")
-  subItem     Timeline[]   @relation  @map("Sub-item")
-  objective   Objective[]  @relation  @map("OYKOT OKR")
+  name      String      @map("Name") @title
+  subItem   Timeline[]  @map("Sub-item") @relation
+  objective Objective[] @map("OYKOT OKR") @relation
   kpt?        String[]     @relation  @map("OYKOT KPT")
   actions?    Action[]     @relation  @map("OYKOT Action")
   display?    Boolean      @checkbox  @map("表示用")
