@@ -16,6 +16,10 @@ const RETRY_DELAY = 1000; // 1秒
 export class NotionClient {
   private client: Client;
   private isInitialized: boolean = false;
+  
+  private sanitizeId(id: string): string {
+    return id.replace(/-/g, '');
+  }
 
   constructor() {
     const apiKey = process.env.NOTION_API_KEY;
@@ -82,8 +86,9 @@ export class NotionClient {
       }
 
       try {
-        await this.validateDatabaseExists(model.notionDatabaseId, model.name);
-        const database = await this.getDatabaseSchema(model.notionDatabaseId);
+        const sanitizedDatabaseId = this.sanitizeId(model.notionDatabaseId);
+        await this.validateDatabaseExists(sanitizedDatabaseId, model.name);
+        const database = await this.getDatabaseSchema(sanitizedDatabaseId);
         await this.validateDatabaseSchema(model, database);
       } catch (error: any) {
         if (error.code === "object_not_found") {
@@ -101,8 +106,9 @@ export class NotionClient {
     modelName: string
   ): Promise<void> {
     try {
+      const sanitizedDatabaseId = this.sanitizeId(databaseId);
       await this.retryOperation(async () => {
-        await this.client.databases.retrieve({ database_id: databaseId });
+        await this.client.databases.retrieve({ database_id: sanitizedDatabaseId });
       });
     } catch (error: any) {
       if (error.code === "unauthorized") {
@@ -121,8 +127,9 @@ export class NotionClient {
 
   async getDatabaseSchema(databaseId: string): Promise<NotionDatabase> {
     try {
+      const sanitizedDatabaseId = this.sanitizeId(databaseId);
       const response = await this.retryOperation(async () =>
-        this.client.databases.retrieve({ database_id: databaseId })
+        this.client.databases.retrieve({ database_id: sanitizedDatabaseId })
       );
       const properties = Object.entries(response.properties).reduce(
         (acc, [key, prop]) => {
