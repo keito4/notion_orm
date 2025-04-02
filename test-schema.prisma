@@ -1,0 +1,18 @@
+// id: 1c970a52-207f-811e-8c42-e17f9471a982
+model Domain {
+  @id
+  name String @map("Name") @title
+  description     String        @richText  @map("description")
+  archive         Boolean       @checkbox  @map("Archive")
+  person          Json          @people    @map("Person")
+  domainParent    Domain[]      @relation  @map("Sub-item")
+  parentItem      Domain[]      @relation  @map("Parent item")
+  documents       Document[]    @relation  @map("🏖️ 議事録")
+}
+
+// id: 2d980b63-308e-922f-9d53-f28e0582b093
+model Document {
+  @id
+  title String @map("Title") @title
+  content String @richText @map("Content")
+}
