@@ -2,6 +2,7 @@ import { writeFileSync, mkdirSync } from "fs";
 import { resolve } from "path";
 import { Model, Schema, Field } from "../types";
 import { logger } from "../utils/logger";
+import { formatIdComment } from "../utils/formatters";
 
 export async function generateClient(schema: Schema): Promise<void> {
   try {
@@ -44,6 +45,7 @@ ${schema.models
   .map(
     (model) => `
 export interface ${model.name} {
+  ${formatIdComment(model.notionDatabaseId)}
   id: string;
   ${model.fields
     .map((field) => {
