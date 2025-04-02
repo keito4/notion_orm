@@ -12,6 +12,7 @@ export function parseSchema(content: string): Schema {
     const models: Model[] = [];
     let currentModel: Model | null = null;
     let inModelBlock = false;
+    let nextModelId = ""; // 次のモデル宣言のためのID
     const fieldNames = new Set<string>();
 
     for (const line of lines) {
@@ -25,18 +26,26 @@ export function parseSchema(content: string): Schema {
         currentModel = {
           name: modelMatch[1],
           fields: [],
-          notionDatabaseId: modelMatch[2] || (modelMatch[1] === "User" ? "abc123" : ""),
+          notionDatabaseId: modelMatch[2] || nextModelId || (modelMatch[1] === "User" ? "abc123" : ""),
         };
+        nextModelId = "";
         inModelBlock = true;
         fieldNames.clear();
         continue;
       }
       
-      if (inModelBlock && currentModel && line.trim().startsWith("//") && line.includes("id:")) {
-        const idMatch = line.match(/\/\/\s*id:\s*([a-zA-Z0-9]+)/);
+      if (line.trim().startsWith("//") && line.includes("id:")) {
+        logger.info(`Processing ID comment: ${line}, inModelBlock=${inModelBlock}, currentModel=${currentModel ? currentModel.name : 'null'}`);
+        const idMatch = line.match(/\/\/\s*id:\s*([a-zA-Z0-9-]+)/);
         if (idMatch && idMatch[1]) {
-          currentModel.notionDatabaseId = idMatch[1];
-          logger.info(`Found database ID in comment: ${idMatch[1]}`);
+          const sanitizedId = idMatch[1].replace(/-/g, '');
+          if (currentModel) {
+            currentModel.notionDatabaseId = sanitizedId;
+            logger.info(`Set database ID for current model ${currentModel.name}: ${idMatch[1]} (sanitized: ${sanitizedId})`);
+          } else {
+            logger.info(`Found database ID before model declaration: ${idMatch[1]} (sanitized: ${sanitizedId})`);
+            nextModelId = sanitizedId;
+          }
         } else {
           logger.warn(`Failed to extract database ID from comment: ${line}`);
         }
