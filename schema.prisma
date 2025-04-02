@@ -53,6 +53,7 @@ model Domain {
   person?          Json          @people    @map("Person")
   domainParent?    Domain[]      @relation  @map("Domainとのリレーション（Parent item）")
   parentItem?      Domain[]      @relation  @map("Parent item")
+  subItem?         Domain[]      @relation  @map("Sub-item")
   documents?       Document[]    @relation  @map("🏖️ 議事録")
 }
 
