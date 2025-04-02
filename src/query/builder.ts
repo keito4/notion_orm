@@ -48,6 +48,10 @@ export class QueryBuilder<T> {
   private relationFilterBuilders: RelationFilterInfo[] = [];
   private readonly CACHE_DURATION = 5 * 60 * 1000;
   private isDebugMode: boolean = typeof process !== 'undefined' && process.env.DEBUG === "true";
+  
+  private sanitizeId(id: string): string {
+    return id.replace(/-/g, '');
+  }
 
   constructor(
     private notion: Client,
@@ -189,6 +193,14 @@ export class QueryBuilder<T> {
     return this;
   }
 
+  id(id: string): QueryBuilder<T> {
+    this.idFilter = this.sanitizeId(id);
+    if (this.isDebugMode) {
+      logger.debug(`id() 呼び出し: id=${id}, sanitizedId=${this.idFilter}`);
+    }
+    return this;
+  }
+
   getFilters(): FilterCondition[] {
     return this.filters;
   }
@@ -314,7 +326,7 @@ export class QueryBuilder<T> {
     }
     const { property, operator, value } = condition;
     if (property === "id") {
-      this.idFilter = value;
+      this.idFilter = this.sanitizeId(value);
       return;
     }
     const notionPropertyName = this.getNotionPropertyName(
@@ -587,12 +599,13 @@ export class QueryBuilder<T> {
   }
 
   private async getRelationData(id: string, modelName: string): Promise<any> {
-    const cacheKey = `${modelName}-${id}`;
+    const sanitizedId = this.sanitizeId(id);
+    const cacheKey = `${modelName}-${sanitizedId}`;
     const cached = this.relationCache[cacheKey];
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
       if (this.isDebugMode) {
         logger.debug(
-          `リレーションデータをキャッシュから取得: id=${id}, modelName=${modelName}, cacheTimestamp=${cached.timestamp}`
+          `リレーションデータをキャッシュから取得: id=${sanitizedId}, modelName=${modelName}, cacheTimestamp=${cached.timestamp}`
         );
       }
       return cached.data;
@@ -600,10 +613,10 @@ export class QueryBuilder<T> {
     try {
       if (this.isDebugMode) {
         logger.debug(
-          `リレーションデータをNotionから取得: id=${id}, modelName=${modelName}`
+          `リレーションデータをNotionから取得: id=${sanitizedId}, modelName=${modelName}`
         );
       }
-      const response = await this.notion.pages.retrieve({ page_id: id });
+      const response = await this.notion.pages.retrieve({ page_id: sanitizedId });
       const mappedData = this.mapResponseToModel(response);
       const blocksResponse = await this.notion.blocks.children.list({
         block_id: id,
@@ -758,8 +771,9 @@ export class QueryBuilder<T> {
     propertyDefinitions: Record<string, any>
   ): Promise<any> {
     try {
+      const sanitizedParentId = this.sanitizeId(parentPageId);
       const response = await this.notion.databases.create({
-        parent: { page_id: parentPageId },
+        parent: { page_id: sanitizedParentId },
         title: [
           {
             type: "text",
@@ -787,6 +801,7 @@ export class QueryBuilder<T> {
     newPropertyDefinitions?: Record<string, any>
   ): Promise<any> {
     try {
+      const sanitizedDatabaseId = this.sanitizeId(databaseId);
       const payload: any = {};
       if (newTitle) {
         payload.title = [
@@ -800,7 +815,7 @@ export class QueryBuilder<T> {
         payload.properties = newPropertyDefinitions;
       }
       const response = await this.notion.databases.update({
-        database_id: databaseId,
+        database_id: sanitizedDatabaseId,
         ...payload,
       });
       if (this.isDebugMode) {
@@ -841,9 +856,10 @@ export class QueryBuilder<T> {
     userProperties: Record<string, any>
   ): Promise<any> {
     try {
+      const sanitizedPageId = this.sanitizeId(pageId);
       const properties = this.buildNotionProperties(userProperties);
       const response = await this.notion.pages.update({
-        page_id: pageId,
+        page_id: sanitizedPageId,
         properties,
       });
       if (this.isDebugMode) {
