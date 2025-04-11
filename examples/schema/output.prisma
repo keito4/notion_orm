@@ -6,7 +6,7 @@ generator client {
 }
 
 model Domain {
-  // id: 1c870a52207f81f78e71c3e56caa42c9
+  // id: your-database-id
   name String @map("Name") @title
   description?     String        @richText  @map("description")
   archive?         Boolean       @checkbox  @map("Archive")
@@ -17,7 +17,7 @@ model Domain {
 }
 
 model Document {
-  // id: 1c870a52207f818da28dd995518f35fe
+  // id: your-database-id
   name   String   @map("Name") @title
   domain Domain[] @map("Domain") @relation
   createdAt?       DateTime?   @createdTime  @map("作成日時")
@@ -25,7 +25,7 @@ model Document {
 }
 
 model Employee {
-  // id: 1c870a52207f811ca6f0c1501005dcee
+  // id: your-database-id
   name   String  @map("Name") @title
   email  String  @map("Email")
   role   String  @map("Role")
@@ -33,7 +33,7 @@ model Employee {
 }
 
 model RegularMeeting {
-  // id: 1c870a52207f81ca80a6d374d49636ab
+  // id: your-database-id
   name         String     @map("Name") @title
   schedule     String?    @map("Schedule")
   participants Json?      @map("Participants") @people
@@ -41,7 +41,7 @@ model RegularMeeting {
 }
 
 model Meeting {
-  // id: 1c870a52207f81eeb9e0cb9c454f6623
+  // id: your-database-id
   title          String           @map("Title") @title
   date           DateTime?        @map("Date") @date
   participants   Json?            @map("Participants") @people
@@ -51,7 +51,7 @@ model Meeting {
 }
 
 model Customer {
-  // id: 1c870a52207f81dcb018d71d337cb8ba
+  // id: your-database-id
   name         String    @map("Name") @title
   contact      Json      @map("Contact") @people
   status       String?   @map("Status") @select
@@ -59,7 +59,7 @@ model Customer {
 }
 
 model SubscriptionTool {
-  // id: 1c870a52207f8139808ae0ba9f643c60
+  // id: your-database-id
   name    String    @map("Name") @title
   vendor  String    @map("Vendor")
   cost    String?   @map("Cost")
@@ -68,14 +68,14 @@ model SubscriptionTool {
 }
 
 model UpdateLog {
-  // id: 1c870a52207f81b9a294d47b6a9c732b
+  // id: your-database-id
   title  String    @map("Title") @title
   date   DateTime? @map("Date") @date
   detail String?   @map("Detail") @richText
 }
 
 model Competitor {
-  // id: 1c870a52207f81b09f2df6a3288c21a8
+  // id: your-database-id
   name     String      @map("Name") @title
   category String?     @map("Category") @select
   updates  UpdateLog[] @map("Updates") @relation
