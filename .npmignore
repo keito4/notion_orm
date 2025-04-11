@@ -2,7 +2,14 @@ src/
 tests/
 examples/
 attached_assets/
-.eslintrc
+.eslintrc.js
+.eslintignore
+eslint.config.mjs
 jest.config.js
 tsconfig.json
+tsconfig.eslint.json
+scripts/
 *.log
+*.prisma
+new.prisma
+output.prisma

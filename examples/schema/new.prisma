@@ -1,0 +1,73 @@
+generator client {
+  provider = "notion-orm"
+  output   = "./src/generated"
+  types    = "notionTypes.ts"
+  client   = "notionClient.ts"
+}
+
+model Domain {
+  name String @map("Name") @title
+  description?     String        @richText  @map("description")
+  archive?         Boolean       @checkbox  @map("Archive")
+  person?          Json          @people    @map("Person")
+  domainParent?    Domain[]      @relation  @map("Domainとのリレーション（Parent item）")
+  parentItem?      Domain[]      @relation  @map("Parent item")
+  documents?       Document[]    @relation  @map("🏖️ 議事録")
+}
+
+model Document {
+  name   String   @map("Name") @title
+  domain Domain[] @map("Domain") @relation
+  createdAt?       DateTime?   @createdTime  @map("作成日時")
+  createdBy?       Json?       @createdBy    @map("作成者")
+}
+
+model Employee {
+  name   String  @map("Name") @title
+  email  String  @map("Email")
+  role   String  @map("Role")
+  active Boolean @map("Active") @checkbox
+}
+
+model RegularMeeting {
+  name         String     @map("Name") @title
+  schedule     String?    @map("Schedule")
+  participants Json?      @map("Participants") @people
+  docs         Document[] @map("Documents") @relation
+}
+
+model Meeting {
+  title          String           @map("Title") @title
+  date           DateTime?        @map("Date") @date
+  participants   Json?            @map("Participants") @people
+  notes          String?          @map("Notes") @richText
+  domain         Domain[]         @map("Domain") @relation
+  regularMeeting RegularMeeting[] @map("Regular Meeting") @relation
+}
+
+model Customer {
+  name         String    @map("Name") @title
+  contact      Json      @map("Contact") @people
+  status       String?   @map("Status") @select
+  lastActivity DateTime? @map("Last Activity") @date
+}
+
+model SubscriptionTool {
+  name    String    @map("Name") @title
+  vendor  String    @map("Vendor")
+  cost    String?   @map("Cost")
+  dueDate DateTime? @map("Due Date") @date
+  manager Json?     @map("Manager") @people
+}
+
+model UpdateLog {
+  title  String    @map("Title") @title
+  date   DateTime? @map("Date") @date
+  detail String?   @map("Detail") @richText
+}
+
+model Competitor {
+  name     String      @map("Name") @title
+  category String?     @map("Category") @select
+  updates  UpdateLog[] @map("Updates") @relation
+}
