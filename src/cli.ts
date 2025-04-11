@@ -194,7 +194,7 @@ export async function createDatabases(parentPageId: string, schemaPath: string =
 }
 
 program
-  .name("notionmodelsync")
+  .name("notion-orm")
   .description(
     "Notion ORM CLI tool for managing database schemas and generating TypeScript types"
   )

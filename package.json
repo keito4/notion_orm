@@ -1,13 +1,15 @@
 {
-  "name": "notionmodelsync",
+  "name": "notion-orm",
   "version": "1.1.7",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "notionmodelsync": "dist/cli.js"
+    "notion-orm": "dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "directories": {
     "test": "tests"
@@ -43,6 +45,7 @@
     "@eslint/js": "^9.18.0",
     "eslint": "^9.18.0",
     "globals": "^15.14.0",
+    "typescript": "^5.8.3",
     "typescript-eslint": "^8.19.1"
   },
   "packageManager": "pnpm@9.14.4+sha512.c8180b3fbe4e4bca02c94234717896b5529740a6cbadf19fa78254270403ea2f27d4e1d46a08a0f56c89b63dc8ebfd3ee53326da720273794e6200fcf0d184ab"
