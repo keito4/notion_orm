@@ -96,7 +96,7 @@ const mockClient = {
   databases: {
     retrieve: jest
       .fn<(_params: any) => Promise<DatabaseObjectResponse>>()
-      .mockImplementation(async (_params) => {
+      .mockImplementation(async (_params: any) => {
         if (_params.database_id === "invalid-id") {
           const error = Object.assign(new Error("Invalid database ID"), {
             code: "invalid_request_url",
