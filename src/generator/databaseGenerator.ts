@@ -1,4 +1,4 @@
-import { Schema, Model, Field } from "../types";
+import { Model, Field } from "../types";
 import { NotionPropertyTypes } from "../types/notionTypes";
 import { logger } from "../utils/logger";
 
