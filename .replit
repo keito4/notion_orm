@@ -55,8 +55,8 @@ mode = "sequential"
 task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
-args = "pnpm run lint"
 task = "shell.exec"
+args = "pnpm run lint"
 
 # -------------------------------------------------------------------
 # 4. 「Build」というワークフロー（例: pnpm exec tsc）
