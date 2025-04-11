@@ -1,5 +1,5 @@
 import { generateDatabaseProperties } from "./databaseGenerator";
-import { Model, Field } from "../types";
+import { Model } from "../types";
 import { NotionPropertyTypes } from "../types/notionTypes";
 
 describe("databaseGenerator", () => {
