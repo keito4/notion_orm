@@ -2,6 +2,7 @@ import { writeFileSync, mkdirSync } from "fs";
 import { resolve } from "path";
 import { Model, Schema, Field } from "../types";
 import { logger } from "../utils/logger";
+import { generateModelTypes } from "./utils/typeUtils";
 
 export async function generateClient(schema: Schema): Promise<void> {
   try {
@@ -20,7 +21,11 @@ export async function generateClient(schema: Schema): Promise<void> {
 
     mkdirSync(outputDir, { recursive: true });
 
-    const typeDefinitions = generateTypeDefinitions(schema);
+    const typeDefinitions = generateModelTypes(schema.models, schema, {
+      includeImports: true,
+      includeInputTypes: true,
+      typeMode: "client"
+    });
     const typesPath = resolve(outputDir, typeFile);
     writeFileSync(typesPath, typeDefinitions);
 
@@ -37,70 +42,6 @@ export async function generateClient(schema: Schema): Promise<void> {
   }
 }
 
-function generateTypeDefinitions(schema: Schema): string {
-  return `
-import { NotionPropertyTypes } from "notionmodelsync";
-${schema.models
-  .map(
-    (model) => `
-export interface ${model.name} {
-  id: string;
-  ${model.fields
-    .map((field) => {
-      const typeStr = getFieldTsType(field, schema);
-      return `${field.name}${field.optional ? "?" : ""}: ${typeStr};`;
-    })
-    .join("\n  ")}
-  createdTime: string;
-  lastEditedTime: string;
-}
-
-export interface ${model.name}Input {
-  ${model.fields
-    .map((field) => {
-      const typeStr = getFieldTsType(field, schema);
-      return `${field.name}${field.optional ? "?" : ""}: ${typeStr};`;
-    })
-    .join("\n  ")}
-}
-`
-  )
-  .join("\n")}
-`.trim();
-}
-
-function getFieldTsType(field: Field, schema: Schema): string {
-  const modelNames = schema.models.map((m) => m.name);
-  let baseType = field.type;
-  if (modelNames.includes(field.type)) {
-    baseType = field.type;
-  } else {
-    switch (field.type) {
-      case "String":
-        baseType = "string";
-        break;
-      case "Boolean":
-        baseType = "boolean";
-        break;
-      case "Number":
-        baseType = "number";
-        break;
-      case "Json":
-        baseType = "any";
-        break;
-      case "DateTime":
-        baseType = "string";
-        break;
-      default:
-        baseType = "string";
-        break;
-    }
-  }
-  if (field.isArray) {
-    baseType += "[]";
-  }
-  return baseType;
-}
 
 function generateClientCode(schema: Schema): string {
   const typeFile = schema.output?.typeDefinitionFile || "types.ts";
