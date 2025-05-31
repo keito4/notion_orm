@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { readFileSync } from "fs";
+import { resolve } from "path";
 import { parseSchema } from "./parser/schemaParser";
 import { generateTypeDefinitions } from "./generator/typeGenerator";
 import { generateClient } from "./generator/clientGenerator";
@@ -10,10 +11,12 @@ import { NotionClient } from "./notion/client";
 import { SyncManager } from "./sync/manager";
 import { logger } from "./utils/logger";
 import { program } from "commander";
-import { version } from "../package.json";
 import { Client } from "@notionhq/client";
 import { QueryBuilder } from "./query/builder";
 import { NotionPropertyTypes } from "./types/notionTypes";
+
+const packageJson = JSON.parse(readFileSync(resolve(__dirname, "../package.json"), "utf-8"));
+const { version } = packageJson;
 
 export async function generateTypes(filePath: string = "schema.prisma"): Promise<void> {
   try {
