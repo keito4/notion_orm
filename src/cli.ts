@@ -20,26 +20,26 @@ const { version } = packageJson;
 
 export async function generateTypes(filePath: string = "schema.prisma"): Promise<void> {
   try {
-    logger.info(`Reading schema file... ${filePath}`);
+    logger.info(`スキーマファイルを読み込んでいます... ${filePath}`);
     const schemaContent = readFileSync(filePath, "utf-8");
 
-    logger.info("Parsing schema...");
+    logger.info("スキーマを解析しています...");
     const schema = parseSchema(schemaContent);
 
-    logger.info("Initializing Notion client...");
+    logger.info("Notionクライアントを初期化しています...");
     const notionClient = new NotionClient();
 
-    logger.info("Validating and syncing schema with Notion...");
+    logger.info("Notionとスキーマの検証・同期をしています...");
     const syncManager = new SyncManager(notionClient);
     await syncManager.validateAndSync(schema);
 
-    logger.info("Generating TypeScript type definitions...");
+    logger.info("TypeScript型定義を生成しています...");
     await generateTypeDefinitions(schema);
 
-    logger.info("Generating client code...");
+    logger.info("クライアントコードを生成しています...");
     await generateClient(schema);
 
-    logger.success("Successfully generated types and client code");
+    logger.success("型定義とクライアントコードの生成に成功しました");
   } catch (error) {
     logger.error("Error generating types:", error);
     throw error;
@@ -210,9 +210,9 @@ program
   .action(async (options) => {
     try {
       await generateTypes(options.schema);
-      logger.success("Successfully generated types and client");
+      logger.success("型定義とクライアントの生成に成功しました");
     } catch (error) {
-      logger.error("Failed to generate types:", error);
+      logger.error("型定義の生成に失敗しました:", error);
       typeof process !== 'undefined' && process.exit(1);
     }
   });
@@ -239,18 +239,18 @@ program
   .option("-s, --schema <path>", "スキーマファイルのパス", "schema.prisma")
   .action(async (options) => {
     try {
-      logger.info("Reading schema file...");
+      logger.info("スキーマファイルを読み込んでいます...");
       const schemaContent = readFileSync(options.schema, "utf-8");
 
-      logger.info("Parsing schema...");
+      logger.info("スキーマを解析しています...");
       const schema = parseSchema(schemaContent);
 
-      logger.info("Generating Prisma schema with database IDs as comments...");
+      logger.info("データベースIDをコメントとして含むPrismaスキーマを生成しています...");
       await generatePrismaSchema(schema);
 
-      logger.success("Successfully exported Prisma schema");
+      logger.success("Prismaスキーマの出力に成功しました");
     } catch (error) {
-      logger.error("Failed to export Prisma schema:", error);
+      logger.error("Prismaスキーマの出力に失敗しました:", error);
       typeof process !== 'undefined' && process.exit(1);
     }
   });
