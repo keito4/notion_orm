@@ -63,7 +63,8 @@ function generateClientCode(schema: Schema): string {
 
   return `
 import { Client } from "@notionhq/client";
-import { NotionPropertyTypes, QueryBuilder } from "notionmodelsync";
+import { NotionPropertyTypes } from "../types/notionTypes";
+import { QueryBuilder } from "../query/builder";
 import { ${schema.models
     .map((m) => m.name)
     .join(", ")} } from "./${typeFile.replace(/\.ts$/, "")}";
@@ -178,7 +179,7 @@ function generateModelSettingsFiles(schema: Schema, outputDir: string): void {
 
 function generateModelSettingsCode(model: Model): string {
   return `
-import { NotionPropertyTypes } from "notionmodelsync";
+import { NotionPropertyTypes } from "../types/notionTypes";
 
 export const ${model.name}ModelSettings = {
   notionDatabaseId: "${model.notionDatabaseId}",
