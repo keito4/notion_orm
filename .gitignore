@@ -3,3 +3,7 @@ node_modules
 generated
 dist/
 .env
+
+# Coverage reports
+coverage/
+*.lcov
