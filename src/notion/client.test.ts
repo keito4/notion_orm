@@ -1,11 +1,34 @@
 import { NotionClient } from "./client";
 import { Schema } from "../types";
-import { describe, test, expect, beforeAll } from "@jest/globals";
+import { describe, test, expect, beforeAll, jest } from "@jest/globals";
+
+// Mock the @notionhq/client module
+jest.mock("@notionhq/client", () => ({
+  Client: jest.fn().mockImplementation(() => ({
+    users: {
+      list: jest.fn<() => Promise<{ results: any[] }>>().mockResolvedValue({ results: [] }),
+    },
+    databases: {
+      retrieve: jest.fn<() => Promise<any>>().mockResolvedValue({
+        id: "test-database-id",
+        properties: {
+          title: {
+            id: "title",
+            name: "Title",
+            type: "title",
+          },
+        },
+      }),
+    },
+  })),
+}));
 
 describe("Notion Connection", () => {
   let client: NotionClient;
 
   beforeAll(() => {
+    // Set mock environment variable
+    process.env.NOTION_API_KEY = "mock-api-key";
     client = new NotionClient();
   });
 
