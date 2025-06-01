@@ -45,7 +45,7 @@ describe('Type Safety Improvements', () => {
       const validAttributes: FieldAttribute[] = [
         '@id', '@title', '@checkbox', '@formula', '@relation', 
         '@multi_select', '@select', '@people', '@date', '@rich_text', 
-        '@number', '@createdTime', '@createdBy', '@map("fieldName")'
+        '@number', '@createdTime', '@createdBy', '@map(fieldName)'
       ];
       
       expect(validAttributes.length).toBeGreaterThan(0);
