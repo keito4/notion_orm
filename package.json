@@ -16,6 +16,7 @@
   },
   "scripts": {
     "test": "jest",
+    "test:coverage": "jest --coverage",
     "lint": "eslint .",
     "generate": "ts-node src/cli.ts generate",
     "create-databases": "ts-node src/cli.ts create-databases",
