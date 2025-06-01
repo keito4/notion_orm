@@ -1,4 +1,4 @@
-import { Schema, Model, Field } from "../types";
+import { Schema, Model, Field, SupportedType, NotionPropertyType, FieldAttribute } from "../types";
 import { NotionPropertyTypes } from "../types/notionTypes";
 import { logger } from "../utils/logger";
 
@@ -86,14 +86,19 @@ export function parseSchema(content: string): Schema {
             attributes
           );
 
+          // Validate that userType is a supported type
+          if (!['String', 'Number', 'Boolean', 'DateTime', 'Json'].includes(userType)) {
+            logger.warn(`Unsupported type "${userType}" for field "${originalName}", defaulting to String`);
+          }
+
           const field: Field = {
             name: originalName,
             notionName: mappedName,
-            type: userType,
-            notionType: notionPropertyType,
+            type: (userType as SupportedType) || 'String',
+            notionType: notionPropertyType as NotionPropertyType,
             isArray,
             optional,
-            attributes,
+            attributes: attributes as readonly FieldAttribute[],
           };
 
           currentModel.fields.push(field);
@@ -118,7 +123,7 @@ function mapTypeToNotion(
   type: string,
   isArray: boolean,
   attributes: string[]
-): string {
+): NotionPropertyType {
   if (attributes.includes("@id")) {
     return NotionPropertyTypes.Id;
   }
@@ -157,6 +162,12 @@ function mapTypeToNotion(
   }
   if (attributes.includes("@createdBy")) {
     return NotionPropertyTypes.CreatedBy;
+  }
+  if (attributes.includes("@lastEditedTime")) {
+    return NotionPropertyTypes.LastEditedTime;
+  }
+  if (attributes.includes("@lastEditedBy")) {
+    return NotionPropertyTypes.LastEditedBy;
   }
 
   if (isArray) {

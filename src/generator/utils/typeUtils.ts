@@ -96,12 +96,15 @@ function getFieldTsType(field: Field, schema: Schema): string {
         baseType = "number";
         break;
       case "Json":
-        baseType = "any";
+        // Use Record<string, unknown> instead of any for better type safety
+        baseType = "Record<string, unknown>";
         break;
       case "DateTime":
         baseType = "string";
         break;
       default:
+        // Log warning and fallback to string, not any
+        logger.warn(`Unknown type: ${field.type}, falling back to string`);
         baseType = "string";
         break;
     }
