@@ -1,237 +1,163 @@
 import { NotionOrmClient } from "./generated/client";
 
-interface Domain {
+interface Category {
   title: string;
   index: string;
-  children?: Domain[];
+  children?: Category[];
 }
 
-interface ParentDomain {
+interface ParentCategory {
   id: string;
   prefix: string;
 }
 
-// Example domain structure - replace with your own organization structure
-const domains: Domain[] = [
+// Example category structure for a generic e-commerce or blog platform
+const categories: Category[] = [
   {
     index: "001",
-    title: "department_a",
+    title: "products",
     children: [
       {
-        index: "002",
-        title: "random",
+        index: "010",
+        title: "electronics",
+        children: [
+          {
+            index: "011",
+            title: "computers",
+          },
+          {
+            index: "012",
+            title: "smartphones",
+          },
+          {
+            index: "013",
+            title: "accessories",
+          }
+        ]
       },
       {
-        index: "003",
-        title: "schedule_adjustment",
+        index: "020",
+        title: "clothing",
+        children: [
+          {
+            index: "021",
+            title: "mens",
+          },
+          {
+            index: "022",
+            title: "womens",
+          },
+          {
+            index: "023",
+            title: "kids",
+          }
+        ]
       },
       {
         index: "030",
-        title: "notification",
-        children: [
-          {
-            index: "031",
-            title: "x",
-          },
-          {
-            index: "032",
-            title: "memo",
-          },
-          {
-            index: "033",
-            title: "calendar",
-          }
-        ]
+        title: "home_garden",
       },
       {
         index: "040",
-        title: "branding",
-        children: [
-          {
-            index: "041",
-            title: "company_slides",
-          },
-          {
-            index: "042",
-            title: "corporate_page",
-          }
-        ]
-      },
-      {
-        index: "050",
-        title: "equipment",
-      },
+        title: "sports_outdoors",
+      }
     ]
   },
   {
     index: "100",
-    title: "department_b",
+    title: "blog",
     children: [
       {
         index: "110",
-        title: "mbo",
+        title: "technology",
       },
       {
         index: "120",
-        title: "meeting",
-        children: [
-          {
-            index: "121",
-            title: "quarter",
-          },
-          {
-            index: "122",
-            title: "monthly",
-          },
-          {
-            index: "123",
-            title: "weekly",
-          },
-          {
-            index: "124",
-            title: "1on1",
-          }
-        ]
+        title: "lifestyle",
       },
       {
         index: "130",
-        title: "document",
-      },
-      {
-        index: "140",
-        title: "automation",
+        title: "tutorials",
         children: [
           {
-            index: "141",
-            title: "workflow",
+            index: "131",
+            title: "beginner",
+          },
+          {
+            index: "132",
+            title: "intermediate",
+          },
+          {
+            index: "133",
+            title: "advanced",
           }
         ]
-      },
-      {
-        index: "150",
-        title: "team",
       }
     ]
   },
   {
     index: "200",
-    title: "department_c",
+    title: "documentation",
     children: [
       {
         index: "210",
-        title: "ai_interview",
+        title: "api_reference",
       },
       {
         index: "220",
-        title: "interview_evaluation",
+        title: "guides",
+      },
+      {
+        index: "230",
+        title: "examples",
       }
     ]
   },
   {
     index: "300",
-    title: "department_d",
-  },
-  {
-    index: "400",
-    title: "department_e",
+    title: "support",
     children: [
       {
-        index: "410",
-        title: "client",
-        children: [
-          {
-            index: "411",
-            title: "client_a",
-          },
-          {
-            index: "412",
-            title: "client_b",
-          }
-        ]
-      },
-    ]
-  },
-  {
-    index: "500",
-    title: "department_f",
-  },
-  {
-    index: "600",
-    title: "department_g",
-  },
-  {
-    index: "700",
-    title: "department_h",
-    children: [
-      {
-        index: "710",
-        title: "hr"
+        index: "310",
+        title: "faq",
       },
       {
-        index: "720",
-        title: "finance",
-        children: [
-          {
-            index: "721",
-            title: "subsidies",
-          },
-          {
-            index: "722",
-            title: "payment",
-          },
-          {
-            index: "723",
-            title: "subscription",
-          }
-        ]
+        index: "320",
+        title: "contact",
       },
       {
-        index: "730",
-        title: "legal_general",
-      },
-      {
-        index: "740",
-        title: "labor_general",
+        index: "330",
+        title: "community",
       }
     ]
   },
   {
     index: "900",
-    title: "others",
-  },
-  {
-    index: "910",
-    title: "club",
-  },
-  {
-    index: "920",
-    title: "bot_test",
+    title: "archive",
   }
 ];
 
-const createDomain = async (client: NotionOrmClient, domain: Domain, parentDomain?: ParentDomain) => {
-  const { title, index, children } = domain;
+const createCategory = async (client: NotionOrmClient, category: Category, parentCategory?: ParentCategory) => {
+  const { title, index, children } = category;
   let page, prefix;
-  if (parentDomain) {
-    page = await client.queryDomain().createPage({
-      name: `${index}_${parentDomain.prefix}_${title}`,
-      parentItem: parentDomain.id,
+  if (parentCategory) {
+    page = await client.queryCategory().createPage({
+      name: `${index}_${parentCategory.prefix}_${title}`,
+      parentItem: parentCategory.id,
     });
-    console.log(`created domain: ${title} ${page.id}`);
-    prefix = `${parentDomain.prefix}_${title}`;
-    prefix = prefix.replace("_general", "");
+    console.log(`created category: ${title} ${page.id}`);
+    prefix = `${parentCategory.prefix}_${title}`;
   } else {
-    page = await client.queryDomain().createPage({
+    page = await client.queryCategory().createPage({
       name: `${index}_${title}`,
     });
-    console.log(`created domain: ${title} ${page.id}`);
+    console.log(`created category: ${title} ${page.id}`);
     prefix = title;
-    prefix = prefix.replace("_general", "");
   }
 
   if (children) {
     for (const child of children) {
-      await createDomain(client, child, {
+      await createCategory(client, child, {
         id: page.id,
         prefix,
       });
@@ -245,8 +171,8 @@ async function main() {
     process.env.NOTION_API_KEY || "your-notion-api-key-here"
   );
 
-  for (const domain of domains) {
-    await createDomain(client, domain);
+  for (const category of categories) {
+    await createCategory(client, category);
   }
 
   console.log("end");

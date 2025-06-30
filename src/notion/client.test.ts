@@ -43,12 +43,12 @@ describe("Notion Connection", () => {
         {
           name: "Document",
           fields: [],
-          notionDatabaseId: "13f70a52207f80d58f64cdc627123f87",
+          notionDatabaseId: "mock-database-id-1234567890abcdef",
         },
         {
           name: "Domain",
           fields: [],
-          notionDatabaseId: "f6e300b8598e42208a2c163444655842",
+          notionDatabaseId: "mock-database-id-fedcba0987654321",
         },
       ],
     };
