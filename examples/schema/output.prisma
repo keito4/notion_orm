@@ -5,78 +5,84 @@ generator client {
   client   = "notionClient.ts"
 }
 
-model Domain {
-  // id: your-database-id
-  name String @map("Name") @title
-  description?     String        @richText  @map("description")
-  archive?         Boolean       @checkbox  @map("Archive")
-  person?          Json          @people    @map("Person")
-  domainParent?    Domain[]      @relation  @map("Domainとのリレーション（Parent item）")
-  parentItem?      Domain[]      @relation  @map("Parent item")
-  documents?       Document[]    @relation  @map("🏖️ 議事録")
+model User {
+  // id: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  name          String    @map("Name") @title
+  email         String    @map("Email") @email
+  role          String    @map("Role") @select
+  active        Boolean   @map("Active") @checkbox
+  joinedDate    DateTime? @map("Joined Date") @date
+  department    String    @map("Department") @select
+  projects      Project[] @map("Projects") @relation
+  tasks         Task[]    @map("Tasks") @relation
+  profilePicture String?  @map("Profile Picture") @files
 }
 
-model Document {
-  // id: your-database-id
-  name   String   @map("Name") @title
-  domain Domain[] @map("Domain") @relation
-  createdAt?       DateTime?   @createdTime  @map("作成日時")
-  createdBy?       Json?       @createdBy    @map("作成者")
+model Project {
+  // id: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  name          String    @map("Name") @title
+  description   String    @map("Description") @richText
+  status        String    @map("Status") @select
+  priority      String    @map("Priority") @select
+  startDate     DateTime? @map("Start Date") @date
+  endDate       DateTime? @map("End Date") @date
+  teamMembers   User[]    @map("Team Members") @relation
+  tasks         Task[]    @map("Tasks") @relation
+  tags          String[]  @map("Tags") @multiSelect
+  budget        Number?   @map("Budget") @number
+  progress      Number?   @map("Progress") @number
 }
 
-model Employee {
-  // id: your-database-id
-  name   String  @map("Name") @title
-  email  String  @map("Email")
-  role   String  @map("Role")
-  active Boolean @map("Active") @checkbox
+model Task {
+  // id: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  title         String    @map("Title") @title
+  description   String?   @map("Description") @richText
+  status        String    @map("Status") @select
+  priority      String    @map("Priority") @select
+  assignee      User[]    @map("Assignee") @relation
+  project       Project[] @map("Project") @relation
+  dueDate       DateTime? @map("Due Date") @date
+  completed     Boolean   @map("Completed") @checkbox
+  tags          String[]  @map("Tags") @multiSelect
+  estimatedTime Number?   @map("Estimated Hours") @number
+  actualTime    Number?   @map("Actual Hours") @number
+  subtasks      Task[]    @map("Subtasks") @relation
+  parentTask    Task[]    @map("Parent Task") @relation
 }
 
-model RegularMeeting {
-  // id: your-database-id
-  name         String     @map("Name") @title
-  schedule     String?    @map("Schedule")
-  participants Json?      @map("Participants") @people
-  docs         Document[] @map("Documents") @relation
+model Article {
+  // id: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  title         String       @map("Title") @title
+  content       String?      @map("Content") @richText
+  author        User[]       @map("Author") @relation
+  status        String       @map("Status") @select
+  publishDate   DateTime?    @map("Publish Date") @date
+  category      Category[]   @map("Category") @relation
+  tags          String[]     @map("Tags") @multiSelect
+  viewCount     Number?      @map("View Count") @number
+  featured      Boolean      @map("Featured") @checkbox
+  coverImage    String?      @map("Cover Image") @files
 }
 
-model Meeting {
-  // id: your-database-id
-  title          String           @map("Title") @title
-  date           DateTime?        @map("Date") @date
-  participants   Json?            @map("Participants") @people
-  notes          String?          @map("Notes") @richText
-  domain         Domain[]         @map("Domain") @relation
-  regularMeeting RegularMeeting[] @map("Regular Meeting") @relation
+model Category {
+  // id: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  name          String       @map("Name") @title
+  description   String?      @map("Description") @richText
+  parentCategory Category[]  @map("Parent Category") @relation
+  subCategories Category[]   @map("Subcategories") @relation
+  articles      Article[]    @map("Articles") @relation
+  icon          String?      @map("Icon") @richText
+  color         String?      @map("Color") @select
+  order         Number?      @map("Order") @number
 }
 
-model Customer {
-  // id: your-database-id
-  name         String    @map("Name") @title
-  contact      Json      @map("Contact") @people
-  status       String?   @map("Status") @select
-  lastActivity DateTime? @map("Last Activity") @date
-}
-
-model SubscriptionTool {
-  // id: your-database-id
-  name    String    @map("Name") @title
-  vendor  String    @map("Vendor")
-  cost    String?   @map("Cost")
-  dueDate DateTime? @map("Due Date") @date
-  manager Json?     @map("Manager") @people
-}
-
-model UpdateLog {
-  // id: your-database-id
-  title  String    @map("Title") @title
-  date   DateTime? @map("Date") @date
-  detail String?   @map("Detail") @richText
-}
-
-model Competitor {
-  // id: your-database-id
-  name     String      @map("Name") @title
-  category String?     @map("Category") @select
-  updates  UpdateLog[] @map("Updates") @relation
+model Comment {
+  // id: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  content       String    @map("Content") @richText
+  author        User[]    @map("Author") @relation
+  article       Article[] @map("Article") @relation
+  createdAt     DateTime? @map("Created At") @createdTime
+  approved      Boolean   @map("Approved") @checkbox
+  parentComment Comment[] @map("Parent Comment") @relation
+  replies       Comment[] @map("Replies") @relation
 }
