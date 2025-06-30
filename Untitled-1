@@ -1,0 +1,30 @@
+```mermaid
+graph TD
+    subgraph Bizreach
+        A["Bizreach: 全ユーザー"]
+        B["Bizreach:該当ユーザー"]
+        node_7["Bizreach: 求人情報"]
+    end
+    A --"検索"--> B
+    B --"Chrome拡張機能"--> C["DB: Profile"]
+    C --"スコアリング(25%)"--> D["DB: job_candidate"]
+    D --"点数絞り込み（50~80点）"--> node_1
+    node_1 --"要約"--> node_2
+    node_2 --> node_3
+    node_4 --> node_3
+    node_5 --> node_3
+    node_6 --> node_4
+    node_7 --> node_5
+    node_8 --> D
+    node_9 --"ChatGPT"--> C
+    node_10 --"ChatGPT"--> C
+    node_1["スカウト対象ユーザー"]
+    node_2["ユーザー訴求点"]
+    node_3["スカウト文"]
+    node_4["会社情報"]
+    node_5["求人情報"]
+    node_6["PDF"]
+    node_8["評価軸"]
+    node_9["Green: 該当ユーザー"]
+    node_10["AMBI: 該当ユーザー"]
+```
