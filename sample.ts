@@ -11,10 +11,11 @@ interface ParentDomain {
   prefix: string;
 }
 
+// Example domain structure - replace with your own organization structure
 const domains: Domain[] = [
   {
     index: "001",
-    title: "general",
+    title: "department_a",
     children: [
       {
         index: "002",
@@ -64,7 +65,7 @@ const domains: Domain[] = [
   },
   {
     index: "100",
-    title: "management_general",
+    title: "department_b",
     children: [
       {
         index: "110",
@@ -114,7 +115,7 @@ const domains: Domain[] = [
   },
   {
     index: "200",
-    title: "product_general",
+    title: "department_c",
     children: [
       {
         index: "210",
@@ -128,11 +129,11 @@ const domains: Domain[] = [
   },
   {
     index: "300",
-    title: "development_general",
+    title: "department_d",
   },
   {
     index: "400",
-    title: "business_general",
+    title: "department_e",
     children: [
       {
         index: "410",
@@ -140,11 +141,11 @@ const domains: Domain[] = [
         children: [
           {
             index: "411",
-            title: "zeals",
+            title: "client_a",
           },
           {
             index: "412",
-            title: "shift",
+            title: "client_b",
           }
         ]
       },
@@ -152,15 +153,15 @@ const domains: Domain[] = [
   },
   {
     index: "500",
-    title: "marketing_general",
+    title: "department_f",
   },
   {
     index: "600",
-    title: "customer_success_general",
+    title: "department_g",
   },
   {
     index: "700",
-    title: "corporate_general",
+    title: "department_h",
     children: [
       {
         index: "710",
@@ -241,7 +242,7 @@ const createDomain = async (client: NotionOrmClient, domain: Domain, parentDomai
 async function main() {
   console.log("start");
   const client = new NotionOrmClient(
-    "***REMOVED***"
+    process.env.NOTION_API_KEY || "your-notion-api-key-here"
   );
 
   for (const domain of domains) {

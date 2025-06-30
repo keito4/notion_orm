@@ -6,7 +6,7 @@ generator client {
 }
 
 model Action {
-  // id: ***REMOVED***
+  // id: your-action-database-id
   name      String  @map("アクション") @title
   manager   Json    @map("担当者") @people
   completed Boolean @map("完了") @checkbox
@@ -20,7 +20,7 @@ model Action {
 }
 
 model Objective {
-  // id: ***REMOVED***
+  // id: your-objective-database-id
   name              String      @map("Name") @title
   completed         Boolean?    @map("完了") @checkbox
   emphasized        Boolean?    @map("注力") @checkbox
@@ -37,7 +37,7 @@ model Objective {
 }
 
 model Document {
-  // id: ***REMOVED***
+  // id: your-document-database-id
   name   String   @map("Name") @title
   domain Domain[] @map("Domain") @relation
   subDomainCand?   String[]    @multiSelect  @map("サブドメイン候補")
@@ -46,7 +46,7 @@ model Document {
 }
 
 model Domain {
-  // id: ***REMOVED***
+  // id: your-domain-database-id
   name String @map("Name") @title
   description?     String        @richText  @map("description")
   archive?         Boolean       @checkbox  @map("Archive")
@@ -57,7 +57,7 @@ model Domain {
 }
 
 model Timeline {
-  // id: 353adc9979f641559ae12fb91660beeb
+  // id: your-timeline-database-id
   name      String      @map("Name") @title
   subItem   Timeline[]  @map("Sub-item") @relation
   objective Objective[] @map("OYKOT OKR") @relation

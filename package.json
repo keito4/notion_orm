@@ -29,7 +29,7 @@
     "orm",
     "sync"
   ],
-  "author": "Your Name",
+  "author": "notion_orm contributors",
   "license": "ISC",
   "description": "A tool to sync models with Notion.",
   "dependencies": {
