@@ -35,6 +35,3 @@ pnpm-lock.yaml
 
 # Claude settings
 .claude/
-
-# Lock files (auto-generated)
-package-lock.json
