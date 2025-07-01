@@ -5,8 +5,10 @@ import tseslint from "typescript-eslint";
 /** @type {import('eslint').Linter.Config[]} */
 export default [
   {
+    ignores: ["dist/**", "examples/**", "sample.ts", "generated/**", "coverage/**"],
+  },
+  {
     files: ["**/*.ts"],
-    ignores: ["dist/**", "**/*.js", "**/*.d.ts", "examples/**"],
     languageOptions: {
       globals: {
         ...globals.browser,

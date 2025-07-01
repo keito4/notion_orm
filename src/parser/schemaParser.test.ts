@@ -138,37 +138,17 @@ describe("Schema Parser", () => {
     expect(modelB.fields[0].optional).toBe(true);
   });
 
-  // test("should throw error for invalid schema without @notionDatabase", () => {
-  //   const invalidSchema = `
-  //     model InvalidModel {
-  //       someField String
-  //     }
-  //   `;
-  //   expect(() => parseSchema(invalidSchema)).toThrowError(
-  //     /Invalid model declaration/
-  //   );
-  // });
-
-  // test("should throw error for invalid field type", () => {
-  //   const invalidSchema = `
-  //     model InvalidType @notionDatabase("test") {
-  //       field InvalidType
-  //     }
-  //   `;
-  //   expect(() => parseSchema(invalidSchema)).toThrowError(/Invalid field type/);
-  // });
-
-  // test("should throw error for duplicate field names", () => {
-  //   const invalidSchema = `
-  //     model DuplicateFields @notionDatabase("test") {
-  //       field String
-  //       field Number
-  //     }
-  //   `;
-  //   expect(() => parseSchema(invalidSchema)).toThrowError(
-  //     /Duplicate field name/
-  //   );
-  // });
+  test("should throw error for duplicate field names", () => {
+    const invalidSchema = `
+      model DuplicateFields @notionDatabase("test") {
+        field String
+        field Number
+      }
+    `;
+    expect(() => parseSchema(invalidSchema)).toThrowError(
+      /Duplicate field name/
+    );
+  });
 
   test("should parse model with ID in comment format", () => {
     const schema = `
