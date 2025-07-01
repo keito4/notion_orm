@@ -146,7 +146,8 @@ describe("Notion Connection", () => {
   // let syncManager: SyncManager;
 
   beforeEach(() => {
-    process.env.NOTION_API_KEY = "test-api-key";
+    // Using test API key for testing purposes only
+    process.env.NOTION_API_KEY = "test-mock-api-key-for-testing-only";
     jest.clearAllMocks();
   });
 

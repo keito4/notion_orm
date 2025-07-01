@@ -1,6 +1,6 @@
 import { writeFileSync, mkdirSync } from "fs";
 import { resolve } from "path";
-import { Model, Schema, Field } from "../types";
+import { Model, Schema } from "../types";
 import { logger } from "../utils/logger";
 import { generateModelTypes } from "./utils/typeUtils";
 

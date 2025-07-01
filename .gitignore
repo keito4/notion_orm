@@ -1,6 +1,7 @@
 node_modules
 
 generated
+sample.ts
 dist/
 .env
 .env.*

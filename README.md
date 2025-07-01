@@ -156,4 +156,4 @@ DEBUG=true notion-orm generate
 
 ## ライセンス
 
-MITライセンスの下でリリースされています。詳細は[LICENSE](./LICENSE)ファイルを参照してください。
+ISCライセンスの下でリリースされています。詳細は[LICENSE](./LICENSE)ファイルを参照してください。

@@ -6,21 +6,21 @@ generator client {
 }
 
 model Deal {
-  companyGroupName String    @map("社名・グループ名") @title
-  updateRecord     DateTime? @map("記載更新") @date
-  priorityMonth    String?   @map("優先度（商談月）") @select
-  progress         String?   @map("案件進捗") @select
-  winProbability   String?   @map("受注確度") @select
-  salesRep         Json?     @map("担当営業") @people
-  industry         String?   @map("業界") @select
-  newGrad          Boolean?  @map("新卒") @checkbox
-  midCareer        Boolean?  @map("中途") @checkbox
-  annualHiring     Int?      @map("年間採用人数")
-  newGradScale     Int?      @map("新卒採用人数規模")
-  midCareerScale   Int?      @map("中途採用人数規模")
-  connection       String?   @map("コネクション") @select
-  connectionSource String?   @map("コネクション元") @select
-  remarks          String?   @map("備考") @richText
-  revenuePotential String?   @map("売上ポテンシャル")
-  expectedOrder    String?   @map("受注金紙見込み")
+  companyName      String    @map("Company Name") @title
+  lastUpdated      DateTime? @map("Last Updated") @date
+  priorityMonth    String?   @map("Priority Month") @select
+  progress         String?   @map("Deal Progress") @select
+  winProbability   String?   @map("Win Probability") @select
+  salesRep         Json?     @map("Sales Representative") @people
+  industry         String?   @map("Industry") @select
+  newGrad          Boolean?  @map("New Graduate") @checkbox
+  midCareer        Boolean?  @map("Mid Career") @checkbox
+  annualHiring     Int?      @map("Annual Hiring Count")
+  newGradScale     Int?      @map("New Graduate Scale")
+  midCareerScale   Int?      @map("Mid Career Scale")
+  connection       String?   @map("Connection Type") @select
+  connectionSource String?   @map("Connection Source") @select
+  remarks          String?   @map("Remarks") @richText
+  revenuePotential String?   @map("Revenue Potential")
+  expectedOrder    String?   @map("Expected Order Value")
 }

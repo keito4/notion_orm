@@ -1,6 +1,7 @@
 import { generateDatabaseProperties } from "./databaseGenerator";
 import { Model } from "../types";
 import { NotionPropertyTypes } from "../types/notionTypes";
+import { describe, it, expect } from "@jest/globals";
 
 describe("databaseGenerator", () => {
   describe("generateDatabaseProperties", () => {
