@@ -1,7 +1,8 @@
 import { describe, test, expect, beforeEach, jest } from "@jest/globals";
-// import { SyncManager } from "./manager";
-// import { NotionClient } from "../notion/client";
-// import { Schema } from "../types";
+import { SyncManager } from "./manager";
+import { NotionClient } from "../notion/client";
+import { Schema } from "../types";
+import { NotionPropertyTypes } from "../types/notionTypes";
 
 import type {
   DatabaseObjectResponse,
@@ -141,13 +142,13 @@ jest.mock("@notionhq/client", () => {
   };
 });
 
-describe("Notion Connection", () => {
-  // let mockNotionClient: jest.Mocked<NotionClient>;
-  // let syncManager: SyncManager;
+// Mock the NotionClient
+jest.mock("../notion/client");
 
+describe("Notion Connection", () => {
   beforeEach(() => {
-    // Using test API key for testing purposes only
-    process.env.NOTION_API_KEY = "test-mock-api-key-for-testing-only";
+    // Set mock environment variable for testing
+    process.env.NOTION_API_KEY = "secret_mock_key_for_unit_tests_only";
     jest.clearAllMocks();
   });
 
@@ -196,5 +197,165 @@ describe("Notion Connection", () => {
     await expect(
       mockClient.databases.retrieve({ database_id: "unauthorized-id" })
     ).rejects.toHaveProperty("status", 401);
+  });
+});
+
+describe("SyncManager", () => {
+  let mockNotionClient: jest.Mocked<NotionClient>;
+  let syncManager: SyncManager;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    
+    mockNotionClient = {
+      validateSchema: jest.fn(),
+      getDatabaseSchema: jest.fn(),
+    } as any;
+    
+    syncManager = new SyncManager(mockNotionClient);
+  });
+
+  test("should validate and sync schema successfully", async () => {
+    const mockSchema: Schema = {
+      models: [
+        {
+          name: "TestModel",
+          fields: [
+            {
+              name: "title",
+              notionName: "Title",
+              type: "String",
+              notionType: NotionPropertyTypes.Title,
+              isArray: false,
+              optional: false,
+              attributes: ["@title"]
+            }
+          ],
+          notionDatabaseId: "test-db-id"
+        }
+      ]
+    };
+
+    const mockDatabaseSchema = {
+      id: "test-db-id",
+      properties: {
+        "Title": {
+          id: "title-id",
+          name: "Title",
+          type: "title"
+        }
+      }
+    } as any;
+
+    mockNotionClient.validateSchema.mockResolvedValue(undefined);
+    mockNotionClient.getDatabaseSchema.mockResolvedValue(mockDatabaseSchema);
+
+    await expect(syncManager.validateAndSync(mockSchema)).resolves.toBeUndefined();
+
+    expect(mockNotionClient.validateSchema).toHaveBeenCalledWith(mockSchema);
+    expect(mockNotionClient.getDatabaseSchema).toHaveBeenCalledWith("test-db-id");
+  });
+
+  test("should handle errors during sync", async () => {
+    const mockSchema: Schema = {
+      models: [
+        {
+          name: "TestModel",
+          fields: [],
+          notionDatabaseId: "test-db-id"
+        }
+      ]
+    };
+
+    const error = new Error("Database not found");
+    mockNotionClient.validateSchema.mockRejectedValue(error);
+
+    await expect(syncManager.validateAndSync(mockSchema)).rejects.toThrow("Database not found");
+  });
+
+  test("should detect missing fields", async () => {
+    const mockSchema: Schema = {
+      models: [
+        {
+          name: "TestModel",
+          fields: [
+            {
+              name: "title",
+              notionName: "Title",
+              type: "String",
+              notionType: NotionPropertyTypes.Title,
+              isArray: false,
+              optional: false,
+              attributes: ["@title"]
+            },
+            {
+              name: "missingField",
+              notionName: "Missing Field",
+              type: "String",
+              notionType: NotionPropertyTypes.RichText,
+              isArray: false,
+              optional: false,
+              attributes: []
+            }
+          ],
+          notionDatabaseId: "test-db-id"
+        }
+      ]
+    };
+
+    const mockDatabaseSchema = {
+      id: "test-db-id",
+      properties: {
+        "Title": {
+          id: "title-id",
+          name: "Title",
+          type: "title"
+        }
+      }
+    } as any;
+
+    mockNotionClient.validateSchema.mockResolvedValue(undefined);
+    mockNotionClient.getDatabaseSchema.mockResolvedValue(mockDatabaseSchema);
+
+    // This should complete without throwing, but log a warning about missing fields
+    await expect(syncManager.validateAndSync(mockSchema)).resolves.toBeUndefined();
+  });
+
+  test("should detect type mismatches", async () => {
+    const mockSchema: Schema = {
+      models: [
+        {
+          name: "TestModel",
+          fields: [
+            {
+              name: "status",
+              notionName: "Status",
+              type: "String",
+              notionType: NotionPropertyTypes.Select,
+              isArray: false,
+              optional: false,
+              attributes: ["@select"]
+            }
+          ],
+          notionDatabaseId: "test-db-id"
+        }
+      ]
+    };
+
+    const mockDatabaseSchema = {
+      id: "test-db-id",
+      properties: {
+        "Status": {
+          id: "status-id",
+          name: "Status",
+          type: "rich_text"  // Wrong type - should be "select"
+        }
+      }
+    } as any;
+
+    mockNotionClient.validateSchema.mockResolvedValue(undefined);
+    mockNotionClient.getDatabaseSchema.mockResolvedValue(mockDatabaseSchema);
+
+    await expect(syncManager.validateAndSync(mockSchema)).rejects.toThrow(/Invalid field types/);
   });
 });

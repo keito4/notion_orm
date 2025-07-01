@@ -1,7 +1,6 @@
 node_modules
 
-generated
-sample.ts
+generated/
 dist/
 .env
 .env.*
@@ -33,3 +32,6 @@ pnpm-lock.yaml
 
 # Development containers
 .devcontainer/
+
+# Claude settings
+.claude/

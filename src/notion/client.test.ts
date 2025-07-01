@@ -27,9 +27,8 @@ describe("Notion Connection", () => {
   let client: NotionClient;
 
   beforeAll(() => {
-    // Set mock environment variable
-    // Using mock API key for testing purposes only
-    process.env.NOTION_API_KEY = "test-mock-api-key-for-testing-only";
+    // Set mock environment variable for testing
+    process.env.NOTION_API_KEY = "secret_mock_key_for_unit_tests_only";
     client = new NotionClient();
   });
 
@@ -44,12 +43,12 @@ describe("Notion Connection", () => {
         {
           name: "Document",
           fields: [],
-          notionDatabaseId: "test-mock-database-id-for-testing-1",
+          notionDatabaseId: "12345678-1234-5678-9abc-123456789abc",
         },
         {
           name: "Domain",
           fields: [],
-          notionDatabaseId: "test-mock-database-id-for-testing-2",
+          notionDatabaseId: "87654321-4321-8765-cba9-987654321098",
         },
       ],
     };

@@ -166,7 +166,7 @@ const createCategory = async (client: NotionOrmClient, category: Category, paren
 };
 
 async function main() {
-  console.log("start");
+  console.log("Creating sample categories...");
   const client = new NotionOrmClient(
     process.env.NOTION_API_KEY || "your-notion-api-key-here"
   );
@@ -175,7 +175,7 @@ async function main() {
     await createCategory(client, category);
   }
 
-  console.log("end");
+  console.log("Sample categories created successfully!");
 }
 
 (async () => {
