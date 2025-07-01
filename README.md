@@ -2,8 +2,6 @@
 
 Prismaライクなスキーマ定義でNotionデータベースを管理し、TypeScriptの型を生成するCLIツール。
 
-[English](./README_EN.md)
-
 ## 概要
 
 Notion ORMは、Prismaに似たDSL（ドメイン固有言語）を使用してNotionデータベースのスキーマを管理し、型安全なTypeScriptクライアントを生成するツールです。このツールを使用すると、開発プロセス全体で型安全性を維持しながら、Notionデータベースと簡単にやり取りすることができます。
