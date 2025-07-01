@@ -13,13 +13,13 @@
 以下の情報がGit履歴に含まれており、削除が必要です：
 
 ### APIキー・トークン
-- `***REMOVED***` (Notion APIキー)
+- `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` (Notion APIキー)
 
 ### データベースID
-- `***REMOVED***`
-- `***REMOVED***` 
-- `***REMOVED***`
-- `***REMOVED***`
+- `398ed17368ec497e9638af2c4d53bec9`
+- `aac810fcb3414dbb9c46ce485bc6449b` 
+- `13f70a52207f80d58f64cdc627123f87`
+- `f6e300b8598e42208a2c163444655842`
 
 ### 不要なファイル・フォルダ
 - `attached_assets/` フォルダとその中身
@@ -50,11 +50,11 @@ wget https://repo1.maven.org/maven2/com/madgag/bfg/1.14.0/bfg-1.14.0.jar
 3. **機密情報リストの作成**
 ```bash
 cat > passwords.txt << 'EOF'
-***REMOVED***
-***REMOVED***
-***REMOVED***
-***REMOVED***
-***REMOVED***
+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
+398ed17368ec497e9638af2c4d53bec9
+aac810fcb3414dbb9c46ce485bc6449b
+13f70a52207f80d58f64cdc627123f87
+f6e300b8598e42208a2c163444655842
 EOF
 ```
 

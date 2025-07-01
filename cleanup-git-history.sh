@@ -24,11 +24,11 @@ echo "✅ バックアップを .git.backup に保存しました"
 # 機密情報のリストを作成
 echo "🔍 機密情報を特定中..."
 cat > sensitive-data.txt << 'EOF'
-***REMOVED***
-***REMOVED***
-***REMOVED***
-***REMOVED***
-***REMOVED***
+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
+398ed17368ec497e9638af2c4d53bec9
+aac810fcb3414dbb9c46ce485bc6449b
+13f70a52207f80d58f64cdc627123f87
+f6e300b8598e42208a2c163444655842
 Pasted-ts-node-src-index-ts-generate-
 附属資産
 attached_assets

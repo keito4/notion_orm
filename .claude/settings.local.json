@@ -9,7 +9,10 @@
       "Bash(git push:*)",
       "Bash(git pull:*)",
       "Bash(rm:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(java:*)",
+      "Bash(git gc:*)",
+      "Bash(git fetch:*)"
     ],
     "deny": []
   }
