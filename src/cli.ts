@@ -10,6 +10,7 @@ import { generatePrismaSchema } from "./generator/prismaGenerator";
 import { NotionClient } from "./notion/client";
 import { SyncManager } from "./sync/manager";
 import { logger } from "./utils/logger";
+import { t } from "./utils/i18n";
 import { program } from "commander";
 import { Client } from "@notionhq/client";
 import { QueryBuilder } from "./query/builder";
@@ -20,51 +21,51 @@ const { version } = packageJson;
 
 export async function generateTypes(filePath: string = "schema.prisma"): Promise<void> {
   try {
-    logger.info(`スキーマファイルを読み込んでいます... ${filePath}`);
+    logger.info(t('cli.loading_schema', { filePath }));
     const schemaContent = readFileSync(filePath, "utf-8");
 
-    logger.info("スキーマを解析しています...");
+    logger.info(t('cli.parsing_schema'));
     const schema = parseSchema(schemaContent);
 
-    logger.info("Notionクライアントを初期化しています...");
+    logger.info(t('cli.initializing_notion_client'));
     const notionClient = new NotionClient();
 
-    logger.info("Notionとスキーマの検証・同期をしています...");
+    logger.info(t('cli.validating_sync'));
     const syncManager = new SyncManager(notionClient);
     await syncManager.validateAndSync(schema);
 
-    logger.info("TypeScript型定義を生成しています...");
+    logger.info(t('cli.generating_types'));
     await generateTypeDefinitions(schema);
 
-    logger.info("クライアントコードを生成しています...");
+    logger.info(t('cli.generating_client'));
     await generateClient(schema);
 
-    logger.success("型定義とクライアントコードの生成に成功しました");
+    logger.success(t('cli.generation_success'));
   } catch (error) {
-    logger.error("Error generating types:", error);
+    logger.error(t('errors.generation_failed'), error);
     throw error;
   }
 }
 
 export async function createDatabases(parentPageId: string, schemaPath: string = "schema.prisma", outputPath: string = "output.prisma"): Promise<void> {
   try {
-    logger.info(`スキーマファイル ${schemaPath} を読み込んでいます...`);
+    logger.info(t('cli.loading_schema_file', { schemaPath }));
     const schemaContent = readFileSync(schemaPath, "utf-8");
 
-    logger.info("スキーマを解析しています...");
+    logger.info(t('cli.parsing_schema'));
     const schema = parseSchema(schemaContent);
 
-    logger.info("Notion クライアントを初期化しています...");
+    logger.info(t('cli.initializing_client'));
     const apiKey = process.env.NOTION_API_KEY;
     if (!apiKey) {
-      throw new Error("NOTION_API_KEY 環境変数が必要です");
+      throw new Error(t('errors.api_key_required'));
     }
     const notionClient = new Client({
       auth: apiKey,
       notionVersion: "2022-06-28",
     });
 
-    logger.info("スキーマからデータベースを作成しています...");
+    logger.info(t('cli.creating_databases'));
     const createdDatabases = new Map<string, string>();
 
     const modelsWithoutRelations = schema.models.filter(
@@ -72,7 +73,7 @@ export async function createDatabases(parentPageId: string, schemaPath: string =
     );
 
     for (const model of modelsWithoutRelations) {
-      logger.info(`モデル ${model.name} のデータベースを作成しています...`);
+      logger.info(t('cli.creating_model_database', { modelName: model.name }));
 
       const propertyDefinitions = generateDatabaseProperties(model);
 
@@ -90,7 +91,7 @@ export async function createDatabases(parentPageId: string, schemaPath: string =
 
       createdDatabases.set(model.name, response.id);
 
-      logger.success(`データベース「${model.name}」を作成しました。ID: ${response.id}`);
+      logger.success(t('cli.database_created', { modelName: model.name, databaseId: response.id }));
     }
 
     const modelsWithRelations = schema.models.filter(
@@ -98,7 +99,7 @@ export async function createDatabases(parentPageId: string, schemaPath: string =
     );
 
     for (const model of modelsWithRelations) {
-      logger.info(`モデル ${model.name} のデータベースを作成しています...`);
+      logger.info(t('cli.creating_model_database', { modelName: model.name }));
 
       const relationFields = model.fields.filter(f => f.notionType === NotionPropertyTypes.Relation);
       const nonRelationFields = model.fields.filter(f => f.notionType !== NotionPropertyTypes.Relation);
@@ -124,7 +125,7 @@ export async function createDatabases(parentPageId: string, schemaPath: string =
 
       createdDatabases.set(model.name, response.id);
 
-      logger.success(`データベース「${model.name}」を作成しました。ID: ${response.id}`);
+      logger.success(t('cli.database_created', { modelName: model.name, databaseId: response.id }));
 
       if (relationFields.length > 0) {
         const updates: Record<string, any> = {};
@@ -141,7 +142,7 @@ export async function createDatabases(parentPageId: string, schemaPath: string =
                 database_id: targetDatabaseId
               }
             };
-            logger.info(`フィールド "${propertyName}" が "${targetModelName}" にマップされました`);
+            logger.info(t('cli.field_mapped', { fieldName: propertyName, targetModelName }));
           }
         }
 
@@ -150,13 +151,13 @@ export async function createDatabases(parentPageId: string, schemaPath: string =
             database_id: response.id,
             properties: updates
           });
-          logger.success(`データベース「${model.name}」のリレーションを更新しました`);
+          logger.success(t('cli.updating_relations', { modelName: model.name }));
         }
       }
     }
 
 
-    logger.info("output.prismaファイルを生成しています...");
+    logger.info(t('cli.generating_output_file'));
 
     const originalSchema = readFileSync(schemaPath, "utf-8");
 
@@ -188,10 +189,10 @@ export async function createDatabases(parentPageId: string, schemaPath: string =
     const { writeFileSync } = require("fs");
     writeFileSync(outputPath, outputSchema, "utf-8");
 
-    logger.success(`${outputPath}ファイルを生成しました`);
-    logger.success("すべてのデータベースを作成しました");
+    logger.success(t('cli.output_file_generated', { outputPath }));
+    logger.success(t('cli.all_databases_created'));
   } catch (error) {
-    logger.error("データベース作成中にエラーが発生しました:", error);
+    logger.error(t('errors.database_creation_failed'), error);
     throw error;
   }
 }
@@ -205,52 +206,52 @@ program
 
 program
   .command("generate")
-  .description("Generate TypeScript types and client from schema")
-  .option("-s, --schema <path>", "スキーマファイルのパス", "schema.prisma")
+  .description(t('commands.generate.description'))
+  .option("-s, --schema <path>", t('commands.generate.schema_option'), "schema.prisma")
   .action(async (options) => {
     try {
       await generateTypes(options.schema);
-      logger.success("型定義とクライアントの生成に成功しました");
+      logger.success(t('cli.generation_success'));
     } catch (error) {
-      logger.error("型定義の生成に失敗しました:", error);
+      logger.error(t('errors.generation_failed'), error);
       typeof process !== 'undefined' && process.exit(1);
     }
   });
 
 program
   .command("create-databases")
-  .description("スキーマからNotionデータベースを作成")
-  .requiredOption("-p, --parent <id>", "データベースを作成する親ページID")
-  .option("-s, --schema <path>", "スキーマファイルのパス", "schema.prisma")
-  .option("-o, --output <path>", "出力スキーマファイルのパス", "output.prisma")
+  .description(t('commands.create_databases.description'))
+  .requiredOption("-p, --parent <id>", t('commands.create_databases.parent_option'))
+  .option("-s, --schema <path>", t('commands.create_databases.schema_option'), "schema.prisma")
+  .option("-o, --output <path>", t('commands.create_databases.output_option'), "output.prisma")
   .action(async (options) => {
     try {
       await createDatabases(options.parent, options.schema, options.output);
-      logger.success("データベースの作成に成功しました");
+      logger.success(t('cli.all_databases_created'));
     } catch (error) {
-      logger.error("データベース作成に失敗しました:", error);
+      logger.error(t('errors.database_creation_failed'), error);
       typeof process !== 'undefined' && process.exit(1);
     }
   });
 
 program
   .command("export")
-  .description("Export Prisma schema with database IDs as comments")
-  .option("-s, --schema <path>", "スキーマファイルのパス", "schema.prisma")
+  .description(t('commands.export.description'))
+  .option("-s, --schema <path>", t('commands.export.schema_option'), "schema.prisma")
   .action(async (options) => {
     try {
-      logger.info("スキーマファイルを読み込んでいます...");
+      logger.info(t('cli.loading_schema', { filePath: options.schema }));
       const schemaContent = readFileSync(options.schema, "utf-8");
 
-      logger.info("スキーマを解析しています...");
+      logger.info(t('cli.parsing_schema'));
       const schema = parseSchema(schemaContent);
 
-      logger.info("データベースIDをコメントとして含むPrismaスキーマを生成しています...");
+      logger.info(t('cli.generating_prisma_schema'));
       await generatePrismaSchema(schema);
 
-      logger.success("Prismaスキーマの出力に成功しました");
+      logger.success(t('cli.prisma_schema_success'));
     } catch (error) {
-      logger.error("Prismaスキーマの出力に失敗しました:", error);
+      logger.error(t('errors.prisma_export_failed'), error);
       typeof process !== 'undefined' && process.exit(1);
     }
   });
