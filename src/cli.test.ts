@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, jest } from "@jest/globals";
+// Jest globals are available without import in this setup
 import { generateTypes, createDatabases } from "./cli";
 import { readFileSync } from "fs";
 
@@ -69,7 +69,7 @@ describe('CLI Functions', () => {
       delete process.env.NOTION_API_KEY;
       mockReadFileSync.mockReturnValue('mock schema content');
 
-      await expect(createDatabases('parent-page-id')).rejects.toThrow('NOTION_API_KEY 環境変数が必要です');
+      await expect(createDatabases('parent-page-id')).rejects.toThrow('NOTION_API_KEY environment variable is required');
     });
 
     it('should create databases successfully', async () => {
