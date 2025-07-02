@@ -1,5 +1,6 @@
 import { parseSchema } from "./schemaParser";
-import { describe, test, expect } from "@jest/globals";
+// Jest globals are available globally with @types/jest 30+
+// No imports needed: describe, test, expect
 
 describe("Schema Parser", () => {
   test("should parse valid schema with one model", () => {
@@ -145,7 +146,7 @@ describe("Schema Parser", () => {
         field Number
       }
     `;
-    expect(() => parseSchema(invalidSchema)).toThrowError(
+    expect(() => parseSchema(invalidSchema)).toThrow(
       /Duplicate field name/
     );
   });

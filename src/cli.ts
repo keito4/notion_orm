@@ -17,7 +17,7 @@ import { QueryBuilder } from "./query/builder";
 import { NotionPropertyTypes } from "./types/notionTypes";
 import { InitCommand } from "./commands/init";
 
-const packageJson = JSON.parse(readFileSync(resolve(__dirname, "../package.json"), "utf-8"));
+const packageJson = JSON.parse(readFileSync(resolve(__dirname, "../package.json"), "utf-8")) as { version: string };
 const { version } = packageJson;
 
 export async function generateTypes(filePath: string = "schema.prisma"): Promise<void> {

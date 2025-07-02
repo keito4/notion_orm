@@ -1,15 +1,16 @@
 import { NotionClient } from "./client";
 import { Schema } from "../types";
-import { describe, test, expect, beforeAll, jest } from "@jest/globals";
+// Jest globals are available globally with @types/jest 30+
+// No imports needed: describe, test, expect, beforeAll, jest
 
 // Mock the @notionhq/client module
 jest.mock("@notionhq/client", () => ({
   Client: jest.fn().mockImplementation(() => ({
     users: {
-      list: jest.fn<() => Promise<{ results: any[] }>>().mockResolvedValue({ results: [] }),
+      list: jest.fn().mockResolvedValue({ results: [] }),
     },
     databases: {
-      retrieve: jest.fn<() => Promise<any>>().mockResolvedValue({
+      retrieve: jest.fn().mockResolvedValue({
         id: "test-database-id",
         properties: {
           title: {

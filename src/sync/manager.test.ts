@@ -1,4 +1,5 @@
-import { describe, test, expect, beforeEach, jest } from "@jest/globals";
+// Jest globals are available globally with @types/jest 30+
+// No imports needed: describe, test, expect, beforeEach, jest
 import { SyncManager } from "./manager";
 import { NotionClient } from "../notion/client";
 import { Schema } from "../types";
@@ -91,12 +92,12 @@ const mockDatabaseResponse: DatabaseObjectResponse = {
 const mockClient = {
   users: {
     list: jest
-      .fn<() => Promise<ListUsersResponse>>()
+      .fn()
       .mockResolvedValue(mockListResponse),
   },
   databases: {
     retrieve: jest
-      .fn<(_params: any) => Promise<DatabaseObjectResponse>>()
+      .fn()
       .mockImplementation(async (_params: any) => {
         if (_params.database_id === "invalid-id") {
           const error = Object.assign(new Error("Invalid database ID"), {

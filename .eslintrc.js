@@ -1,4 +1,4 @@
-export default {
+module.exports = {
   root: true,
   env: {
     es6: true,
@@ -15,8 +15,8 @@ export default {
   plugins: ["@typescript-eslint"],
   extends: [
     "eslint:recommended",
-    "plugin:@typescript-eslint/recommended",
-    "plugin:@typescript-eslint/recommended-requiring-type-checking",
+    "@typescript-eslint/recommended",
+    "@typescript-eslint/recommended-requiring-type-checking",
   ],
   rules: {},
 };

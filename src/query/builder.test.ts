@@ -3,7 +3,8 @@
  */
 import { QueryBuilder } from "./builder";
 import { NotionPropertyTypes } from "../types/notionTypes";
-import { describe, it, beforeEach, expect, jest } from "@jest/globals";
+// Jest globals are available globally with @types/jest 30+
+// No imports needed: describe, it, beforeEach, expect, jest
 
 describe("QueryBuilder", () => {
   let notionMock: any;

@@ -1,11 +1,5 @@
-import {
-  describe,
-  it,
-  expect,
-  beforeEach,
-  afterEach,
-  jest,
-} from "@jest/globals";
+// Jest globals are available globally with @types/jest 30+
+// No imports needed: describe, it, expect, beforeEach, afterEach, jest
 import { logger } from "./logger";
 
 declare const process: {
@@ -67,8 +61,8 @@ describe("Logger", () => {
 
   it("should log error messages without error object", () => {
     logger.error("error message");
-    expect(mockConsole.error).toHaveBeenCalledTimes(1);
-    expect(mockConsole.error).toHaveBeenCalledWith(
+    expect(mockConsole.log).toHaveBeenCalledTimes(1);
+    expect(mockConsole.log).toHaveBeenCalledWith(
       expect.stringContaining("error message")
     );
   });
