@@ -15,6 +15,7 @@ import { program } from "commander";
 import { Client } from "@notionhq/client";
 import { QueryBuilder } from "./query/builder";
 import { NotionPropertyTypes } from "./types/notionTypes";
+import { InitCommand } from "./commands/init";
 
 const packageJson = JSON.parse(readFileSync(resolve(__dirname, "../package.json"), "utf-8"));
 const { version } = packageJson;
@@ -203,6 +204,20 @@ program
     "Notion ORM CLI tool for managing database schemas and generating TypeScript types"
   )
   .version(version);
+
+program
+  .command("init")
+  .description(t('commands.init.description'))
+  .option("-f, --force", t('commands.init.force_option'))
+  .action(async (options) => {
+    try {
+      const initCommand = new InitCommand();
+      await initCommand.execute(options);
+    } catch (error) {
+      logger.error(t('init.error'), error);
+      typeof process !== 'undefined' && process.exit(1);
+    }
+  });
 
 program
   .command("generate")

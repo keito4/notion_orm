@@ -24,6 +24,19 @@ npm install -g notion-orm
 npm install notion-orm
 ```
 
+### 🚀 Quick Start
+
+```bash
+# Run the interactive setup wizard (recommended)
+notion-orm init
+
+# This will automatically handle:
+# - API key setup guide
+# - Database auto-detection
+# - Schema file generation
+# - .env file creation
+```
+
 ## Setup
 
 ### Quick Start

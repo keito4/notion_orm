@@ -40,6 +40,10 @@ const messages: LanguageMessages = {
       prisma_export_failed: 'Failed to export Prisma schema:'
     },
     commands: {
+      init: {
+        description: 'Interactive setup wizard for Notion ORM',
+        force_option: 'Force overwrite existing files'
+      },
       generate: {
         description: 'Generate TypeScript types and client from schema',
         schema_option: 'Schema file path'
@@ -54,6 +58,58 @@ const messages: LanguageMessages = {
         description: 'Export Prisma schema with database IDs as comments',
         schema_option: 'Schema file path'
       }
+    },
+    init: {
+      welcome: 'Welcome to Notion ORM!',
+      description: 'This wizard will help you set up your project step by step.',
+      step: 'Step',
+      error: 'Setup failed:',
+      api_key_setup: 'Notion API Key Setup',
+      api_key_instructions: 'To use Notion ORM, you need a Notion integration API key.',
+      visit_integrations: 'Visit',
+      create_integration: 'Click "Create new integration"',
+      enable_capabilities: 'Enable Read, Update, and Insert capabilities',
+      copy_token: 'Copy the integration token',
+      existing_key_found: 'Found existing API key in environment.',
+      use_existing: 'Use it?',
+      enter_api_key: 'Enter your Notion API key',
+      invalid_api_key: 'API key should start with "secret_"',
+      fetching_databases: 'Fetching Databases',
+      connecting_notion: 'Connecting to Notion',
+      fetching_databases_progress: 'Fetching your databases',
+      found_databases: 'Found {count} databases',
+      unauthorized_error: 'Invalid API key. Please check and try again.',
+      select_databases: 'Select Databases',
+      no_databases_found: 'No databases found.',
+      create_sample_schema: 'Create sample schema?',
+      available_databases: 'Available databases',
+      id: 'ID',
+      properties: 'Properties',
+      select_databases_prompt: 'Select databases by number',
+      selected_count: 'Selected {count} databases',
+      generating_schema: 'Generating Schema',
+      schema_exists: 'schema.prisma already exists.',
+      overwrite: 'Overwrite?',
+      skip_schema_generation: 'Skipping schema generation',
+      schema_generated: 'Schema generated at {path}',
+      creating_env_file: 'Creating Environment File',
+      env_exists: '.env file already exists.',
+      skip_env_creation: 'Skipping .env creation',
+      env_created: 'Created .env file at {path}',
+      gitignore_updated: 'Updated .gitignore',
+      gitignore_created: 'Created .gitignore',
+      setup_complete_message: 'Your Notion ORM project is ready!',
+      next_steps: 'Next steps',
+      share_databases: 'Share your databases with the integration',
+      share_instructions: 'Go to each database → ⋯ menu → Add connections → Select your integration',
+      generate_types: 'Generate TypeScript types',
+      start_coding: 'Start coding!',
+      import_client: 'import { NotionOrmClient } from "./generated/client"',
+      learn_more: 'Learn more',
+      documentation: 'Documentation',
+      examples: 'Examples',
+      support: 'Support',
+      happy_coding: 'Happy coding!'
     }
   },
   ja: {
@@ -85,6 +141,10 @@ const messages: LanguageMessages = {
       prisma_export_failed: 'Prismaスキーマの出力に失敗しました:'
     },
     commands: {
+      init: {
+        description: 'Notion ORMの対話型セットアップウィザード',
+        force_option: '既存ファイルを強制的に上書き'
+      },
       generate: {
         description: 'スキーマからTypeScript型とクライアントを生成',
         schema_option: 'スキーマファイルのパス'
@@ -99,6 +159,58 @@ const messages: LanguageMessages = {
         description: 'データベースIDをコメントとして含むPrismaスキーマを出力',
         schema_option: 'スキーマファイルのパス'
       }
+    },
+    init: {
+      welcome: 'Notion ORMへようこそ！',
+      description: 'このウィザードがプロジェクトのセットアップをお手伝いします。',
+      step: 'ステップ',
+      error: 'セットアップが失敗しました:',
+      api_key_setup: 'Notion APIキーの設定',
+      api_key_instructions: 'Notion ORMを使用するには、Notion統合のAPIキーが必要です。',
+      visit_integrations: 'アクセス',
+      create_integration: '「新しい統合を作成」をクリック',
+      enable_capabilities: '読み取り、更新、挿入の機能を有効化',
+      copy_token: '統合トークンをコピー',
+      existing_key_found: '環境変数に既存のAPIキーが見つかりました。',
+      use_existing: 'これを使用しますか？',
+      enter_api_key: 'Notion APIキーを入力してください',
+      invalid_api_key: 'APIキーは "secret_" で始まる必要があります',
+      fetching_databases: 'データベースの取得',
+      connecting_notion: 'Notionに接続中',
+      fetching_databases_progress: 'データベースを取得中',
+      found_databases: '{count}個のデータベースが見つかりました',
+      unauthorized_error: '無効なAPIキーです。確認して再試行してください。',
+      select_databases: 'データベースの選択',
+      no_databases_found: 'データベースが見つかりませんでした。',
+      create_sample_schema: 'サンプルスキーマを作成しますか？',
+      available_databases: '利用可能なデータベース',
+      id: 'ID',
+      properties: 'プロパティ',
+      select_databases_prompt: '番号でデータベースを選択してください',
+      selected_count: '{count}個のデータベースを選択しました',
+      generating_schema: 'スキーマの生成',
+      schema_exists: 'schema.prismaは既に存在します。',
+      overwrite: '上書きしますか？',
+      skip_schema_generation: 'スキーマ生成をスキップします',
+      schema_generated: '{path}にスキーマを生成しました',
+      creating_env_file: '環境ファイルの作成',
+      env_exists: '.envファイルは既に存在します。',
+      skip_env_creation: '.env作成をスキップします',
+      env_created: '{path}に.envファイルを作成しました',
+      gitignore_updated: '.gitignoreを更新しました',
+      gitignore_created: '.gitignoreを作成しました',
+      setup_complete_message: 'Notion ORMプロジェクトの準備ができました！',
+      next_steps: '次のステップ',
+      share_databases: 'データベースを統合と共有',
+      share_instructions: '各データベース → ⋯メニュー → 接続を追加 → 統合を選択',
+      generate_types: 'TypeScript型を生成',
+      start_coding: 'コーディング開始！',
+      import_client: 'import { NotionOrmClient } from "./generated/client"',
+      learn_more: '詳細情報',
+      documentation: 'ドキュメント',
+      examples: '例',
+      support: 'サポート',
+      happy_coding: 'Happy coding!'
     }
   }
 };
