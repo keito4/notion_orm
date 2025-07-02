@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# notion_ormのリリーススクリプト
+# notion_ormの緊急時リリーススクリプト
+# 注意: 通常はSemantic Releaseを使用してください (git push origin main)
 # 使用方法: ./scripts/release.sh [バージョン]
 # 例: ./scripts/release.sh 1.2.0
 
