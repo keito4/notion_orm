@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
 import { parseSchema } from "./parser/schemaParser";
 import { generateTypeDefinitions } from "./generator/typeGenerator";
@@ -17,8 +17,31 @@ import { QueryBuilder } from "./query/builder";
 import { NotionPropertyTypes } from "./types/notionTypes";
 import { InitCommand } from "./commands/init";
 
-const packageJson = JSON.parse(readFileSync(resolve(__dirname, "../package.json"), "utf-8"));
-const { version } = packageJson;
+// Try multiple paths to find package.json
+const possiblePaths = [
+  resolve(__dirname, "../package.json"),
+  resolve(__dirname, "../../package.json"),
+  resolve(process.cwd(), "package.json")
+];
+
+let packageJson: any;
+let version: string;
+
+for (const path of possiblePaths) {
+  try {
+    if (existsSync(path)) {
+      packageJson = JSON.parse(readFileSync(path, "utf-8"));
+      version = packageJson.version;
+      break;
+    }
+  } catch (error) {
+    // Continue to next path
+  }
+}
+
+if (!version) {
+  version = "1.0.0"; // Fallback version
+}
 
 export async function generateTypes(filePath: string = "schema.prisma"): Promise<void> {
   try {
@@ -283,4 +306,7 @@ program
     }
   });
 
-program.parse();
+// Only parse arguments if this script is being run directly (not imported in tests)
+if (require.main === module) {
+  program.parse();
+}
