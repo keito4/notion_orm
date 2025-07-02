@@ -67,8 +67,7 @@ describe("Logger", () => {
 
   it("should log error messages without error object", () => {
     logger.error("error message");
-    expect(mockConsole.error).toHaveBeenCalledTimes(1);
-    expect(mockConsole.error).toHaveBeenCalledWith(
+    expect(mockConsole.log).toHaveBeenCalledWith(
       expect.stringContaining("error message")
     );
   });

@@ -35,3 +35,12 @@ pnpm-lock.yaml
 
 # Claude settings
 .claude/
+
+# Test and example files
+examples/
+sample.ts
+*_sales.prisma
+generated-icon.png
+
+# Generated files for testing
+generated/
