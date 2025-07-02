@@ -40,6 +40,9 @@ jobs:
       - name: Build project
         run: pnpm run build
 
+      - name: Check package size
+        run: pnpm run size-check
+
       - name: Run security audit
         run: pnpm audit --audit-level moderate
 
