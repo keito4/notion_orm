@@ -37,7 +37,7 @@ export class SyncManager {
       if (missingFields.length > 0) {
         logger.warn(
           `Missing fields in Notion database for model ${model.name}:`,
-          missingFields
+          missingFields.join(", ")
         );
       }
 

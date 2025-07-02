@@ -1,22 +1,16 @@
+import { colors, icons, VisualLogger } from "./visual";
+
 type LogArgs = unknown[];
 type LogLevel = "debug" | "info" | "warn" | "error" | "success";
 
-const colors = {
-  reset: "\x1b[0m",
-  red: "\x1b[31m",
-  green: "\x1b[32m",
-  yellow: "\x1b[33m",
-  blue: "\x1b[34m",
-  magenta: "\x1b[35m",
-};
-
-const symbols = {
-  debug: "🔍",
-  info: "ℹ",
-  warn: "⚠",
-  error: "✗",
-  success: "✓",
-};
+// Legacy symbols kept for backwards compatibility (unused but maintained for reference)
+// const _legacySymbols = {
+//   debug: "🔍",
+//   info: "ℹ",
+//   warn: "⚠",
+//   error: "✗",
+//   success: "✓",
+// };
 
 function getTimestamp(): string {
   return new Date().toISOString();
@@ -24,15 +18,23 @@ function getTimestamp(): string {
 
 function formatMessage(level: LogLevel, message: string): string {
   const timestamp = getTimestamp();
-  const color = {
-    debug: colors.magenta,
-    info: colors.blue,
-    warn: colors.yellow,
-    error: colors.red,
-    success: colors.green,
+  const colorFn = {
+    debug: colors.muted,
+    info: colors.info,
+    warn: colors.warning,
+    error: colors.error,
+    success: colors.success,
   }[level];
 
-  return `${color}${symbols[level]}${colors.reset} [${timestamp}] ${color}${message}${colors.reset}`;
+  const icon = {
+    debug: icons.info,
+    info: icons.info,
+    warn: icons.warning,
+    error: icons.error,
+    success: icons.success,
+  }[level];
+
+  return `${icon} [${colors.muted(timestamp)}] ${colorFn(message)}`;
 }
 
 function formatError(error: unknown): string {
@@ -42,10 +44,10 @@ function formatError(error: unknown): string {
       error.stack ? `Stack trace:\n${error.stack}` : '',
       error.cause ? `Caused by: ${error.cause}` : ''
     ].filter(Boolean).join('\n');
-    return `${colors.red}${errorDetails}${colors.reset}`;
+    return colors.error(errorDetails);
   }
 
-  return `${colors.red}Error details: ${String(error)}${colors.reset}`;
+  return colors.error(`Error details: ${String(error)}`);
 }
 
 export const logger = {
@@ -55,22 +57,64 @@ export const logger = {
     }
   },
 
-  success: (message: string, ...args: LogArgs): void => {
-    console.log(formatMessage("success", message), ...args);
-  },
-
-  error: (message: string, error?: unknown): void => {
-    console.error(formatMessage("error", message));
-    if (error !== undefined) {
-      console.error(formatError(error));
+  success: (message: string, details?: string, ...args: LogArgs): void => {
+    if (details) {
+      VisualLogger.success(message, details);
+    } else {
+      console.log(formatMessage("success", message), ...args);
     }
   },
 
-  info: (message: string, ...args: LogArgs): void => {
-    console.log(formatMessage("info", message), ...args);
+  error: (message: string, error?: unknown): void => {
+    if (error) {
+      console.error(formatMessage("error", message));
+      console.error(formatError(error));
+    } else {
+      VisualLogger.error(message);
+    }
   },
 
-  warn: (message: string, ...args: LogArgs): void => {
-    console.log(formatMessage("warn", message), ...args);
+  info: (message: string, details?: string, ...args: LogArgs): void => {
+    if (details) {
+      VisualLogger.info(message, details);
+    } else {
+      console.log(formatMessage("info", message), ...args);
+    }
   },
+
+  warn: (message: string, details?: string, ...args: LogArgs): void => {
+    if (details) {
+      VisualLogger.warning(message, details);
+    } else {
+      console.log(formatMessage("warn", message), ...args);
+    }
+  },
+
+  // New enhanced methods using VisualLogger
+  visual: VisualLogger,
+  
+  // Specific visual methods for common use cases
+  step: (stepNumber: number, message: string): void => {
+    VisualLogger.step(stepNumber, message);
+  },
+
+  progress: (message: string): void => {
+    VisualLogger.progress(message);
+  },
+
+  banner: (title: string, subtitle?: string): void => {
+    VisualLogger.banner(title, subtitle);
+  },
+
+  divider: (title?: string): void => {
+    VisualLogger.divider(title);
+  },
+
+  list: (items: string[], options?: { numbered?: boolean; color?: (_text: string) => string }): void => {
+    VisualLogger.list(items, options);
+  },
+
+  table: (data: Array<Record<string, string>>, headers?: string[]): void => {
+    VisualLogger.table(data, headers);
+  }
 };

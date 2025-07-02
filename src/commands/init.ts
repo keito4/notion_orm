@@ -3,6 +3,7 @@ import { resolve } from "path";
 import { Client } from "@notionhq/client";
 import { logger } from "../utils/logger";
 import { t } from "../utils/i18n";
+import { ProgressBar, EnhancedSpinner, colors, icons, createBox } from "../utils/visual";
 import * as readline from "readline";
 
 interface DatabaseInfo {
@@ -73,20 +74,20 @@ export class InitCommand {
   }
 
   private printBanner() {
-    console.log(`
-╔═══════════════════════════════════════════════════════════════╗
-║                    🚀 Notion ORM Setup Wizard                 ║
-╚═══════════════════════════════════════════════════════════════╝
-
-${t('init.welcome')}
-${t('init.description')}
-`);
+    const banner = createBox(
+      `🚀 Notion ORM Setup Wizard\n\n${t('init.welcome')}\n${t('init.description')}`,
+      {
+        style: 'double',
+        color: colors.brand,
+        align: 'center',
+        padding: 2
+      }
+    );
+    console.log('\n' + banner + '\n');
   }
 
   private printStep(step: number, title: string) {
-    console.log(`\n${"─".repeat(60)}`);
-    console.log(`📌 ${t('init.step')} ${step}: ${title}`);
-    console.log(`${"─".repeat(60)}\n`);
+    logger.divider(`${t('init.step')} ${step}: ${title}`);
   }
 
   async execute(_options: InitOptions = {}): Promise<void> {
@@ -154,16 +155,18 @@ ${t('init.description')}
   private async fetchDatabases(): Promise<void> {
     this.printStep(2, t('init.fetching_databases'));
 
-    const spinner = this.createSpinner(t('init.connecting_notion'));
+    const spinner = new EnhancedSpinner(t('init.connecting_notion'));
+    spinner.start();
 
     try {
       const client = new Client({ auth: this.apiKey });
 
       // Test connection
       await client.users.list({ page_size: 1 });
-      this.stopSpinner(spinner, "✓");
+      spinner.succeed(t('init.connecting_notion'));
 
-      const fetchSpinner = this.createSpinner(t('init.fetching_databases_progress'));
+      const fetchSpinner = new EnhancedSpinner(t('init.fetching_databases_progress'));
+      fetchSpinner.start();
 
       // Search for all databases
       const response = await client.search({
@@ -180,11 +183,11 @@ ${t('init.description')}
           properties: db.properties || {},
         }));
 
-      this.stopSpinner(fetchSpinner, "✓");
+      fetchSpinner.succeed(t('init.fetching_databases_progress'));
 
-      console.log(`\n${t('init.found_databases', { count: this.databases.length })}`);
+      logger.success(t('init.found_databases', { count: this.databases.length }));
     } catch (error: any) {
-      this.stopSpinner(spinner, "✗");
+      spinner.fail(t('init.connecting_notion'));
       if (error.code === "unauthorized") {
         throw new Error(t('init.unauthorized_error'));
       }
@@ -204,18 +207,20 @@ ${t('init.description')}
       return;
     }
 
-    console.log(t('init.available_databases') + ":\n");
+    console.log(colors.info(t('init.available_databases')) + ":\n");
 
-    // Display databases with numbers
-    this.databases.forEach((db, index) => {
-      console.log(`  ${index + 1}. ${db.title}`);
-      console.log(`     ${t('init.id')}: ${db.id}`);
-      console.log(`     ${t('init.properties')}: ${Object.keys(db.properties).length}`);
-      console.log();
-    });
+    // Display databases in a table format
+    const tableData = this.databases.map((db, index) => ({
+      '#': (index + 1).toString(),
+      'Database': colors.highlight(db.title),
+      'ID': colors.muted(db.id),
+      'Properties': colors.accent(Object.keys(db.properties).length.toString())
+    }));
+
+    logger.table(tableData, ['#', 'Database', 'ID', 'Properties']);
 
     const selection = await this.prompt(
-      t('init.select_databases_prompt') + " (e.g., 1,3,5 or 'all'): "
+      colors.primary(t('init.select_databases_prompt')) + " (e.g., 1,3,5 or 'all'): "
     );
 
     if (selection.toLowerCase() === "all") {
@@ -228,7 +233,7 @@ ${t('init.description')}
       this.selectedDatabases = indices.map((i) => this.databases[i]);
     }
 
-    console.log(`\n${t('init.selected_count', { count: this.selectedDatabases.length })}`);
+    logger.success(t('init.selected_count', { count: this.selectedDatabases.length }));
   }
 
   private async generateSchema(): Promise<void> {
@@ -239,7 +244,7 @@ ${t('init.description')}
     // Check if schema exists
     if (existsSync(schemaPath)) {
       const overwrite = await this.prompt(
-        t('init.schema_exists') + " " + t('init.overwrite') + " (y/N): "
+        colors.warning(t('init.schema_exists')) + " " + colors.primary(t('init.overwrite')) + " (y/N): "
       );
       if (overwrite.toLowerCase() !== "y") {
         logger.info(t('init.skip_schema_generation'));
@@ -247,10 +252,21 @@ ${t('init.description')}
       }
     }
 
+    // Show progress for schema generation
+    const progress = new ProgressBar(this.selectedDatabases.length + 1, {
+      label: 'Generating schema'
+    });
+
+    progress.update(0, 'Building generator config');
     const schemaContent = this.buildSchemaContent();
+    
+    progress.update(1, 'Writing schema file');
     writeFileSync(schemaPath, schemaContent);
 
-    logger.success(t('init.schema_generated', { path: schemaPath }));
+    progress.complete('Schema generation complete');
+
+    logger.success(t('init.schema_generated', { path: schemaPath }), 
+      `Generated schema with ${this.selectedDatabases.length} models`);
   }
 
   private buildSchemaContent(): string {
@@ -417,31 +433,39 @@ NOTION_API_KEY=${this.apiKey}
   }
 
   private printSuccess(): void {
-    console.log(`
-╔═══════════════════════════════════════════════════════════════╗
-║                    ✅ Setup Complete!                         ║
-╚═══════════════════════════════════════════════════════════════╝
+    const successBox = createBox(
+      `${icons.success} Setup Complete!\n\n${t('init.setup_complete_message')}`,
+      {
+        style: 'double',
+        color: colors.success,
+        align: 'center',
+        padding: 2
+      }
+    );
 
-${t('init.setup_complete_message')}
+    console.log('\n' + successBox + '\n');
 
-${t('init.next_steps')}:
+    logger.divider(t('init.next_steps'));
+    
+    const nextSteps = [
+      `${colors.primary(t('init.share_databases'))}\n   ${colors.muted(t('init.share_instructions'))}`,
+      `${colors.primary(t('init.generate_types'))}\n   ${colors.accent('$ notion-orm generate')}`,
+      `${colors.primary(t('init.start_coding'))}\n   ${colors.muted(t('init.import_client'))}`
+    ];
 
-  1. ${t('init.share_databases')}
-     ${t('init.share_instructions')}
+    logger.list(nextSteps, { numbered: true });
 
-  2. ${t('init.generate_types')}
-     $ notion-orm generate
+    logger.divider(t('init.learn_more'));
+    
+    const resources = [
+      `${colors.accent('📖')} ${t('init.documentation')}: ${colors.info('https://github.com/your-org/notion-orm')}`,
+      `${colors.accent('🚀')} ${t('init.examples')}: ${colors.info('./docs/examples/')}`,
+      `${colors.accent('💬')} ${t('init.support')}: ${colors.info('https://github.com/your-org/notion-orm/issues')}`
+    ];
 
-  3. ${t('init.start_coding')}
-     ${t('init.import_client')}
+    logger.list(resources);
 
-${t('init.learn_more')}:
-  📖 ${t('init.documentation')}: https://github.com/your-org/notion-orm
-  🚀 ${t('init.examples')}: ./docs/examples/
-  💬 ${t('init.support')}: https://github.com/your-org/notion-orm/issues
-
-${t('init.happy_coding')} 🎉
-`);
+    console.log(`\n${colors.success('🎉')} ${colors.highlight(t('init.happy_coding'))} ${colors.success('🎉')}\n`);
   }
 
   // Utility methods
@@ -464,6 +488,7 @@ ${t('init.happy_coding')} 🎉
       .replace(/^_/, "");
   }
 
+  // Legacy spinner methods (kept for backwards compatibility but not used)
   private createSpinner(message: string): ReturnType<typeof setInterval> {
     const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
     let i = 0;

@@ -22,26 +22,38 @@ const { version } = packageJson;
 
 export async function generateTypes(filePath: string = "schema.prisma"): Promise<void> {
   try {
-    logger.info(t('cli.loading_schema', { filePath }));
+    logger.banner("Type Generation", "Generating TypeScript types from Notion schema");
+    
+    const steps = [
+      t('cli.loading_schema', { filePath }),
+      t('cli.parsing_schema'),
+      t('cli.initializing_notion_client'),
+      t('cli.validating_sync'),
+      t('cli.generating_types'),
+      t('cli.generating_client')
+    ];
+
+    logger.progress(steps[0]);
     const schemaContent = readFileSync(filePath, "utf-8");
 
-    logger.info(t('cli.parsing_schema'));
+    logger.progress(steps[1]);
     const schema = parseSchema(schemaContent);
 
-    logger.info(t('cli.initializing_notion_client'));
+    logger.progress(steps[2]);
     const notionClient = new NotionClient();
 
-    logger.info(t('cli.validating_sync'));
+    logger.progress(steps[3]);
     const syncManager = new SyncManager(notionClient);
     await syncManager.validateAndSync(schema);
 
-    logger.info(t('cli.generating_types'));
+    logger.progress(steps[4]);
     await generateTypeDefinitions(schema);
 
-    logger.info(t('cli.generating_client'));
+    logger.progress(steps[5]);
     await generateClient(schema);
 
-    logger.success(t('cli.generation_success'));
+    logger.success(t('cli.generation_success'), 
+      `Generated types for ${schema.models.length} models`);
   } catch (error) {
     logger.error(t('errors.generation_failed'), error);
     throw error;
