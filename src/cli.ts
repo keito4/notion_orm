@@ -34,7 +34,7 @@ for (const path of possiblePaths) {
       version = packageJson.version;
       break;
     }
-  } catch (error) {
+  } catch {
     // Continue to next path
   }
 }
