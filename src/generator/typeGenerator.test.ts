@@ -1,6 +1,6 @@
 import { generateTypeDefinitions } from "./typeGenerator";
 import { Schema } from "../types";
-import { describe, test, expect } from "@jest/globals";
+// Jest globals (describe, test, expect) are available without import in Jest 30+
 describe("Code Generator", () => {
   const mockSchema: Schema = {
     models: [
