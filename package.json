@@ -37,7 +37,7 @@
   "dependencies": {
     "@notionhq/client": "^2.2.15",
     "chalk": "^5.4.1",
-    "commander": "^12.1.0",
+    "commander": "^14.0.0",
     "ts-node": "^10.9.2"
   },
   "devDependencies": {
@@ -68,6 +68,6 @@
     "url": "https://github.com/your-org/notion-orm/issues"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.12.0"
   }
 }
