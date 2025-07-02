@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, jest } from "@jest/globals";
+// Jest globals are available without import in this setup
 import { generateTypes, createDatabases } from "./cli";
 import { readFileSync } from "fs";
 

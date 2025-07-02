@@ -1,6 +1,6 @@
 import { generateClient } from "./clientGenerator";
 import { Schema } from "../types";
-import { describe, test, expect } from "@jest/globals";
+// Jest globals are available without import in this setup
 
 describe("Code Generator", () => {
   const mockSchema: Schema = {

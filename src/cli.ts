@@ -25,7 +25,7 @@ const possiblePaths = [
 ];
 
 let packageJson: any;
-let version: string;
+let version: string = "1.0.0"; // Default fallback version
 
 for (const path of possiblePaths) {
   try {
@@ -34,7 +34,7 @@ for (const path of possiblePaths) {
       version = packageJson.version;
       break;
     }
-  } catch (error) {
+  } catch {
     // Continue to next path
   }
 }
