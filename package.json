@@ -36,7 +36,7 @@
   "license": "ISC",
   "description": "A tool to sync models with Notion.",
   "dependencies": {
-    "@notionhq/client": "^2.2.15",
+    "@notionhq/client": "^3.1.3",
     "chalk": "^5.4.1",
     "commander": "^14.0.0",
     "ts-node": "^10.9.2"
