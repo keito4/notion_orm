@@ -29,4 +29,27 @@ export default [
       "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
     },
   },
+  {
+    files: ["**/*.test.ts"],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        ...globals.jest
+      },
+      parser: tseslint.parser,
+      parserOptions: {
+        project: true,
+      },
+    },
+    plugins: {
+      "@typescript-eslint": tseslint.plugin,
+    },
+    rules: {
+      ...pluginJs.configs.recommended.rules,
+      ...tseslint.configs.recommended.rules,
+      "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+      "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    },
+  },
 ];
