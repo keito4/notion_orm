@@ -1,5 +1,5 @@
 import { parseSchema } from "./schemaParser";
-// Jest globals (describe, test, expect) are available without import in Jest 30+
+// Jest globals (describe, it, expect, beforeEach, afterEach, jest) are available without import in Jest 30+
 
 describe("Schema Parser", () => {
   test("should parse valid schema with one model", () => {

@@ -9,6 +9,7 @@ export default [
   },
   {
     files: ["**/*.ts"],
+    ignores: ["**/*.test.ts"],
     languageOptions: {
       globals: {
         ...globals.browser,
@@ -35,7 +36,16 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.node,
-        ...globals.jest
+        ...globals.jest,
+        describe: "readonly",
+        it: "readonly",
+        test: "readonly",
+        expect: "readonly",
+        beforeAll: "readonly",
+        beforeEach: "readonly",
+        afterAll: "readonly",
+        afterEach: "readonly",
+        jest: "readonly"
       },
       parser: tseslint.parser,
       parserOptions: {

@@ -1,4 +1,4 @@
-// Jest globals (describe, test, expect, beforeEach, jest) are available without import in Jest 30+
+// Jest globals (describe, it, expect, beforeEach, afterEach, jest) are available without import in Jest 30+
 import { SyncManager } from "./manager";
 import { NotionClient } from "../notion/client";
 import { Schema } from "../types";
