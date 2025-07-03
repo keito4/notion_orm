@@ -28,10 +28,18 @@ yarn-error.log*
 
 # Package manager files
 .pnpm-store/
-pnpm-lock.yaml
 
 # Development containers
 .devcontainer/
 
 # Claude settings
 .claude/
+
+# Test and example files
+examples/
+sample.ts
+*_sales.prisma
+generated-icon.png
+
+# Generated files for testing
+generated/
