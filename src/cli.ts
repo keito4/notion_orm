@@ -39,10 +39,6 @@ for (const path of possiblePaths) {
   }
 }
 
-if (!version) {
-  version = "1.0.0"; // Fallback version
-}
-
 export async function generateTypes(filePath: string = "schema.prisma"): Promise<void> {
   try {
     logger.banner("Type Generation", "Generating TypeScript types from Notion schema");

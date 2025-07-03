@@ -31,7 +31,7 @@ export default [
     },
   },
   {
-    files: ["**/*.test.ts"],
+    files: ["**/*.test.ts", "**/*.spec.ts"],
     languageOptions: {
       globals: {
         ...globals.browser,

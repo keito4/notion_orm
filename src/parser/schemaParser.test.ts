@@ -145,7 +145,7 @@ describe("Schema Parser", () => {
         field Number
       }
     `;
-    expect(() => parseSchema(invalidSchema)).toThrowError(
+    expect(() => parseSchema(invalidSchema)).toThrow(
       /Duplicate field name/
     );
   });
