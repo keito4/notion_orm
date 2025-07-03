@@ -1,4 +1,4 @@
-// Jest globals are available without import in this setup
+// Jest globals (describe, it, expect, beforeEach, afterEach, jest) are available without import in Jest 30+
 import { generateTypes, createDatabases } from "./cli";
 import { readFileSync } from "fs";
 
@@ -9,6 +9,7 @@ jest.mock("./generator/typeGenerator");
 jest.mock("./generator/clientGenerator");
 jest.mock("./notion/client");
 jest.mock("./sync/manager");
+jest.mock("@notionhq/client");
 
 const mockReadFileSync = readFileSync as jest.MockedFunction<typeof readFileSync>;
 
@@ -24,6 +25,10 @@ describe('CLI Functions', () => {
   afterEach(() => {
     // Clean up environment variable
     delete process.env.NOTION_API_KEY;
+    // Clear all mocks and timers
+    jest.clearAllMocks();
+    jest.clearAllTimers();
+    jest.useRealTimers();
   });
 
   describe('generateTypes', () => {
@@ -76,6 +81,18 @@ describe('CLI Functions', () => {
       mockReadFileSync.mockReturnValue('mock schema content');
       
       const { parseSchema } = require("./parser/schemaParser");
+      const { Client } = require("@notionhq/client");
+      
+      // Mock the Notion client
+      const mockNotionClientInstance = {
+        databases: {
+          create: jest.fn().mockResolvedValue({ id: 'test-db-id' }),
+          update: jest.fn().mockResolvedValue({ id: 'test-db-id' })
+        }
+      };
+      
+      (Client as any).mockImplementation(() => mockNotionClientInstance);
+      
       parseSchema.mockReturnValue({ 
         models: [
           {
@@ -91,9 +108,22 @@ describe('CLI Functions', () => {
         ]
       });
 
-      // Note: This test would need more mocking for a complete implementation
-      // For now, we test that it doesn't throw with proper setup
-      expect(() => createDatabases('parent-page-id')).not.toThrow();
+      // Mock writeFileSync
+      const fs = require('fs');
+      fs.writeFileSync = jest.fn();
+
+      // This is an async function, so we need to await it
+      await expect(createDatabases('parent-page-id')).resolves.toBeUndefined();
+      
+      // Verify that the database creation was attempted
+      expect(mockNotionClientInstance.databases.create).toHaveBeenCalled();
+      
+      // Verify the output file was written
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        'output.prisma',
+        expect.any(String),
+        'utf-8'
+      );
     });
   });
 });

@@ -1,7 +1,7 @@
 import { generateDatabaseProperties } from "./databaseGenerator";
 import { Model } from "../types";
 import { NotionPropertyTypes } from "../types/notionTypes";
-// Jest globals are available without import in this setup
+// Jest globals (describe, it, expect) are available without import in Jest 30+
 
 describe("databaseGenerator", () => {
   describe("generateDatabaseProperties", () => {
