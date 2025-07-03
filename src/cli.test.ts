@@ -1,4 +1,4 @@
-// Jest globals are available without import in this setup
+// Jest globals (describe, it, expect, beforeEach, afterEach, jest) are available without import in Jest 30+
 import { generateTypes, createDatabases } from "./cli";
 import { readFileSync } from "fs";
 
