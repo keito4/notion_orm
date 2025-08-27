@@ -18,10 +18,12 @@
     "test": "jest",
     "test:coverage": "jest --coverage",
     "lint": "eslint .",
+    "format": "prettier --write \"src/**/*.{ts,js,json}\" \"tests/**/*.{ts,js,json}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,js,json}\" \"tests/**/*.{ts,js,json}\"",
     "generate": "ts-node src/cli.ts generate",
     "create-databases": "ts-node src/cli.ts create-databases",
     "build": "tsc",
-    "prepublishOnly": "npm run lint && npm run test && npm run build",
+    "prepublishOnly": "npm run format:check && npm run lint && npm run test && npm run build",
     "publish": "npm run build && npm publish",
     "test:export": "node scripts/test-export.js",
     "size-check": "ls -lah dist/ && echo 'Package size:' && tar -czf - dist/ | wc -c | numfmt --to=iec",
@@ -51,6 +53,7 @@
     "globals": "^16.2.0",
     "husky": "^9.1.7",
     "jest": "^30.0.5",
+    "prettier": "^3.6.2",
     "semantic-release": "^24.2.7",
     "ts-jest": "^29.4.1",
     "typescript": "^5.9.2",
@@ -63,11 +66,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/notion-orm.git"
+    "url": "https://github.com/keito4/notion_orm.git"
   },
-  "homepage": "https://github.com/your-org/notion-orm#readme",
+  "homepage": "https://github.com/keito4/notion_orm#readme",
   "bugs": {
-    "url": "https://github.com/your-org/notion-orm/issues"
+    "url": "https://github.com/keito4/notion_orm/issues"
   },
   "engines": {
     "node": ">=18.12.0"
