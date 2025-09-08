@@ -39,7 +39,7 @@
   "description": "A tool to sync models with Notion.",
   "dependencies": {
     "@notionhq/client": "^4.0.2",
-    "chalk": "^5.6.0",
+    "chalk": "^5.6.2",
     "commander": "^14.0.0",
     "ts-node": "^10.9.2"
   },
